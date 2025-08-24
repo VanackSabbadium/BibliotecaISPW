@@ -1,0 +1,37 @@
+{
+	"folders": {},
+	"connections": {
+		"mariaDB-198a4fbdcc0-2702a2fc3cab0936": {
+			"provider": "mysql",
+			"driver": "mariaDB",
+			"name": "biblioteca",
+			"save-password": true,
+			"configuration": {
+				"host": "localhost",
+				"port": "3306",
+				"url": "jdbc:mariadb://localhost:3306/",
+				"configurationType": "MANUAL",
+				"home": "/home/VanackData/Programs",
+				"type": "dev",
+				"closeIdleConnection": true,
+				"auth-model": "native"
+			}
+		}
+	},
+	"connection-types": {
+		"dev": {
+			"name": "Development",
+			"color": "255,255,255",
+			"description": "Regular development database",
+			"auto-commit": true,
+			"confirm-execute": false,
+			"confirm-data-change": false,
+			"smart-commit": false,
+			"smart-commit-recover": true,
+			"auto-close-transactions": true,
+			"close-transactions-period": 1800,
+			"auto-close-connections": true,
+			"close-connections-period": 14400
+		}
+	}
+}
