@@ -23,6 +23,7 @@ public class JdbcBookDAO implements BookDAO {
 
     @Override
     public void salvaLibro(Book b) {
+        // Non usiamo la colonna 'attivo' qui: lasciamo il default (1) gestito dal DB
         String sql = "INSERT INTO libri (isbn, titolo, autore, casa_editrice, data_pubblicazione, copie) VALUES (?,?,?,?,?,?)";
         try (Connection c = cp.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -49,6 +50,7 @@ public class JdbcBookDAO implements BookDAO {
 
     @Override
     public void aggiornaLibro(Book b) {
+        // Non aggiorniamo 'attivo' perché non esiste nella tua entità Book
         String sql = "UPDATE libri SET isbn=?, titolo=?, autore=?, casa_editrice=?, data_pubblicazione=?, copie=? WHERE id=?";
         try (Connection c = cp.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
@@ -76,7 +78,6 @@ public class JdbcBookDAO implements BookDAO {
         String sql = "DELETE FROM libri WHERE id=?";
         try (Connection c = cp.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
-
             ps.setLong(1, id);
             ps.executeUpdate();
         } catch (SQLException e) {
@@ -86,7 +87,8 @@ public class JdbcBookDAO implements BookDAO {
 
     @Override
     public List<Book> trovaTutti() {
-        String sql = "SELECT id, isbn, titolo, autore, casa_editrice, data_pubblicazione, copie FROM libri";
+        // Mostriamo solo libri attivi; il mapping non richiede il campo 'attivo' nell'entità
+        String sql = "SELECT id, isbn, titolo, autore, casa_editrice, data_pubblicazione, copie FROM libri WHERE attivo = 1";
         List<Book> out = new ArrayList<>();
         try (Connection c = cp.getConnection();
              PreparedStatement ps = c.prepareStatement(sql);

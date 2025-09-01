@@ -1,32 +1,64 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.Vanack</groupId>
-    <artifactId>Biblioteca</artifactId>
-    <version>1.0-SNAPSHOT</version>
-
-    <build>
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-                <includes>
-                    <include>**/*</include>
-                </includes>
-            </resource>
-        </resources>
-    </build>
-
+    <groupId>it.biblioteca</groupId>
+    <artifactId>BibliotecaApp</artifactId>
+    <version>1.0.0</version>
+    <name>BibliotecaApp</name>
 
     <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.source>24</maven.compiler.source>
+        <maven.compiler.target>24</maven.compiler.target>
+        <maven.compiler.release>24</maven.compiler.release>
+        <javafx.version>24</javafx.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <dependencies>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-controls</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-fxml</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+        <!-- Aggiungi se usi altre parti di JavaFX:
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-graphics</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+        -->
+    </dependencies>
 
+    <build>
+        <plugins>
+            <!-- Garantisce l'uso del JDK configurato e l'opzione 'release' -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>${maven.compiler.release}</release>
+                </configuration>
+            </plugin>
 
+            <!-- Plugin per run JavaFX senza VM options manuali -->
+            <plugin>
+                <groupId>org.openjfx</groupId>
+                <artifactId>javafx-maven-plugin</artifactId>
+                <version>0.0.8</version>
+                <configuration>
+                    <!-- Puoi lanciare con la Main “launcher” o direttamente l'Application -->
+                    <mainClass>it.biblioteca.Main</mainClass>
+                    <!-- mainClass>it.biblioteca.BibliotecaApp</mainClass -->
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
-

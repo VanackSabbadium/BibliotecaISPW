@@ -4,6 +4,7 @@ import it.biblioteca.dao.ConnectionProvider;
 import it.biblioteca.dao.DatabaseConnectionProvider;
 import it.biblioteca.dao.UtenteDAO;
 import it.biblioteca.entity.Utente;
+import it.biblioteca.security.SessionContext;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -17,7 +18,13 @@ public class JdbcUtenteDAO implements UtenteDAO {
 
     @Override
     public List<Utente> trovaTutti() {
-        String sql = "SELECT id, tessera, nome, cognome, email, telefono, data_attivazione, data_scadenza FROM utenti";
+        // Bibliotecario: legge l'intera tabella.
+        // Utente: legge solo dalla vista 'utenti_self' (filtrata da set/get_app_tessera()).
+        final boolean selfOnly = SessionContext.isUtente();
+        final String sql = selfOnly
+                ? "SELECT id, tessera, nome, cognome, email, telefono, data_attivazione, data_scadenza FROM utenti_self"
+                : "SELECT id, tessera, nome, cognome, email, telefono, data_attivazione, data_scadenza FROM utenti";
+
         List<Utente> out = new ArrayList<>();
         try (Connection c = cp.getConnection();
              PreparedStatement ps = c.prepareStatement(sql);
@@ -34,7 +41,11 @@ public class JdbcUtenteDAO implements UtenteDAO {
 
     @Override
     public Utente trovaPerId(Long id) {
-        String sql = "SELECT id, tessera, nome, cognome, email, telefono, data_attivazione, data_scadenza FROM utenti WHERE id=?";
+        final boolean selfOnly = SessionContext.isUtente();
+        final String sql = selfOnly
+                ? "SELECT id, tessera, nome, cognome, email, telefono, data_attivazione, data_scadenza FROM utenti_self WHERE id=?"
+                : "SELECT id, tessera, nome, cognome, email, telefono, data_attivazione, data_scadenza FROM utenti WHERE id=?";
+
         try (Connection c = cp.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
 
