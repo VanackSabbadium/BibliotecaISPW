@@ -7,7 +7,7 @@ import it.biblioteca.db.DatabaseConfig;
 import it.biblioteca.entity.Book;
 import it.biblioteca.entity.Prestito;
 import it.biblioteca.entity.Utente;
-
+import it.biblioteca.security.SessionContext;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -24,9 +24,7 @@ import javafx.scene.layout.VBox;
 
 import java.net.URL;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -109,6 +107,17 @@ public class ContentManager {
             boolean ok = DatabaseConfig.testCredentials(r.getUsername(), r.getPassword());
             if (ok) {
                 DatabaseConfig.apply(r); // salva user/pass
+
+                // --- imposta il contesto di sessione (ruolo/tessera) qui ---
+                if ("Utente".equalsIgnoreCase(r.getUsername())) {
+                    SessionContext.setRole(SessionContext.AppRole.UTENTE);
+                    SessionContext.setTessera(r.getTessera()); // può essere null
+                } else {
+                    SessionContext.setRole(SessionContext.AppRole.BIBLIOTECARIO);
+                    SessionContext.setTessera(null);
+                }
+                // ---------------------------------------------------------------
+
                 this.currentTheme = r.getTheme();
                 applyTheme(); // applica CSS e style class al root
                 break; // esci dal loop e costruisci la UI
@@ -127,7 +136,7 @@ public class ContentManager {
         // Avvio con sola Home aperta
         tabPane.getTabs().add(homeTab);
 
-        // Sidebar sinistra con "Esci" sotto "Utenti"
+        // Sidebar sinistra con "Esci" sotto le voci (adattata al ruolo)
         VBox leftBar = buildLeftSidebar();
 
         rootContainer.setLeft(leftBar);
@@ -155,46 +164,152 @@ public class ContentManager {
         btnUsers.setMaxWidth(Double.MAX_VALUE);
         btnUsers.setOnAction(e -> mostraUtenti());
 
+        Button btnChangeUser = new Button("Cambia utente");
+        btnChangeUser.setMaxWidth(Double.MAX_VALUE);
+        btnChangeUser.setOnAction(e -> switchUser()); // nuova funzionalità
+
         Button btnExit = new Button("Esci");
         btnExit.setMaxWidth(Double.MAX_VALUE);
         btnExit.setOnAction(e -> Platform.exit());
 
-        VBox left = new VBox(8, btnHome, btnCatalog, btnLoans, btnUsers, btnExit);
+        VBox left = new VBox(8);
+
+        // Se l'utente è un UTENTE normale, non aggiungiamo i pulsanti Prestiti e Utenti
+        if (SessionContext.isUtente()) {
+            left.getChildren().addAll(btnHome, btnCatalog, btnChangeUser, btnExit);
+        } else {
+            // Bibliotecario vede tutto
+            left.getChildren().addAll(btnHome, btnCatalog, btnLoans, btnUsers, btnChangeUser, btnExit);
+        }
+
         left.setPadding(new Insets(10));
         left.setFillWidth(true);
         left.getStyleClass().add("sidebar"); // per styling CSS se serve
         return left;
     }
 
+    /**
+     * Mostra il dialog di login per cambiare utente. Se le nuove credenziali sono valide,
+     * applica il nuovo contesto e ricostruisce la UI (sidebar, home, e svuota i contenuti delle tab).
+     */
+    private void switchUser() {
+        StartupDialog dlg = new StartupDialog();
+        Optional<StartupResult> res = dlg.showAndWait();
+
+        if (res.isEmpty()) {
+            // l'utente ha annullato -> non cambiare nulla
+            return;
+        }
+        StartupResult r = res.get();
+        if (r == null || !r.isValid()) {
+            showError("Inserisci username e password.");
+            return;
+        }
+
+        boolean ok = DatabaseConfig.testCredentials(r.getUsername(), r.getPassword());
+        if (!ok) {
+            showError("Credenziali non valide. Ritorno alla sessione corrente.");
+            return;
+        }
+
+        // Applichiamo le nuove credenziali al DatabaseConfig
+        DatabaseConfig.apply(r);
+
+        // Impostiamo il contesto di sessione
+        if ("Utente".equalsIgnoreCase(r.getUsername())) {
+            SessionContext.setRole(SessionContext.AppRole.UTENTE);
+            SessionContext.setTessera(r.getTessera()); // può essere null
+        } else {
+            SessionContext.setRole(SessionContext.AppRole.BIBLIOTECARIO);
+            SessionContext.setTessera(null);
+        }
+
+        // Aggiorniamo il tema
+        this.currentTheme = r.getTheme();
+        applyTheme();
+
+        // Resettiamo lo stato delle view/tab in modo che vengano ricreate al primo accesso
+        try {
+            // svuota dati e forzi ricostruzione
+            if (catalogData != null) catalogData.clear();
+            if (loansData != null) loansData.clear();
+            if (usersData != null) usersData.clear();
+
+            catalogRoot = null;
+            loansRoot = null;
+            usersRoot = null;
+            catalogTable = null;
+            loansTable = null;
+            usersTable = null;
+
+            // ricostruisci la home e la sidebar
+            if (homeTab == null) {
+                homeTab = new Tab("Home", buildHomeView());
+                homeTab.setClosable(false);
+            } else {
+                homeTab.setContent(buildHomeView());
+            }
+
+            // puliamo tutte le tab aperte e lasciamo solo la home
+            if (tabPane != null) {
+                tabPane.getTabs().clear();
+                tabPane.getTabs().add(homeTab);
+            }
+
+            // ricostruisci la sidebar
+            if (rootContainer != null) {
+                rootContainer.setLeft(buildLeftSidebar());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Si è verificato un errore durante il cambio utente: " + e.getMessage());
+        }
+    }
+
     private VBox buildHomeView() {
         Label title = new Label("Benvenuto nella Biblioteca");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
-        Label info = new Label(
-                "Cosa puoi fare:\n" +
-                        "• Gestire il catalogo libri (aggiungere, modificare, rimuovere).\n" +
-                        "• Registrare prestiti e restituzioni.\n" +
-                        "• Gestire gli utenti (creazione, modifica, eliminazione).\n\n" +
-                        "Limitazioni e note:\n" +
-                        "• Alcune operazioni richiedono connessione attiva al database.\n" +
-                        "• Non è possibile rimuovere un libro con prestiti attivi.\n" +
-                        "• Verifica sempre le date di attivazione/scadenza per gli utenti."
-        );
+        String infoText;
+        if (SessionContext.isUtente()) {
+            infoText = "Cosa puoi fare (Utente):\n" +
+                    "• Visualizzare il catalogo libri.\n" +
+                    "• Applicare filtri e ricerche per trovare libri.\n\n" +
+                    "Note:\n" +
+                    "• Non puoi aggiungere/modificare/rimuovere libri.\n" +
+                    "• Non puoi visualizzare né registrare prestiti o gestire utenti.";
+        } else {
+            infoText = "Cosa puoi fare (Bibliotecario):\n" +
+                    "• Gestire il catalogo libri (aggiungere, modificare, rimuovere).\n" +
+                    "• Registrare prestiti e restituzioni.\n" +
+                    "• Gestire gli utenti (creazione, modifica, eliminazione).\n\n" +
+                    "Limitazioni e note:\n" +
+                    "• Alcune operazioni richiedono connessione attiva al database.\n" +
+                    "• Non è possibile rimuovere un libro con prestiti attivi.\n" +
+                    "• Verifica sempre le date di attivazione/scadenza per gli utenti.";
+        }
+
+        Label info = new Label(infoText);
         info.setWrapText(true);
 
         Button btnGoCatalog = new Button("Apri Catalogo");
         btnGoCatalog.setOnAction(e -> mostraCatalogoLibri());
 
-        Button btnGoLoans = new Button("Apri Prestiti");
-        btnGoLoans.setOnAction(e -> mostraPrestiti());
+        HBox actions;
+        if (SessionContext.isUtente()) {
+            Button btnExit = new Button("Esci");
+            btnExit.setOnAction(e -> Platform.exit());
+            actions = new HBox(10, btnGoCatalog, btnExit);
+        } else {
+            Button btnGoLoans = new Button("Apri Prestiti");
+            btnGoLoans.setOnAction(e -> mostraPrestiti());
+            Button btnGoUsers = new Button("Apri Utenti");
+            btnGoUsers.setOnAction(e -> mostraUtenti());
+            Button btnExit = new Button("Esci");
+            btnExit.setOnAction(e -> Platform.exit());
+            actions = new HBox(10, btnGoCatalog, btnGoLoans, btnGoUsers, btnExit);
+        }
 
-        Button btnGoUsers = new Button("Apri Utenti");
-        btnGoUsers.setOnAction(e -> mostraUtenti());
-
-        Button btnExit = new Button("Esci");
-        btnExit.setOnAction(e -> Platform.exit()); // chiusura applicazione
-
-        HBox actions = new HBox(10, btnGoCatalog, btnGoLoans, btnGoUsers, btnExit);
         actions.setAlignment(Pos.CENTER);
 
         VBox box = new VBox(15, title, info, actions);
@@ -298,6 +413,10 @@ public class ContentManager {
     }
 
     private void ensureLoansTab() {
+        if (SessionContext.isUtente()) {
+            // se utente normale, non creare la tab prestiti
+            return;
+        }
         if (loansTab == null) {
             loansTab = new Tab("Prestiti");
             loansTab.setClosable(true); // chiudibile
@@ -310,6 +429,10 @@ public class ContentManager {
     }
 
     private void ensureUsersTab() {
+        if (SessionContext.isUtente()) {
+            // user non deve vedere la tab utenti
+            return;
+        }
         if (usersTab == null) {
             usersTab = new Tab("Utenti");
             usersTab.setClosable(true); // chiudibile
@@ -325,14 +448,31 @@ public class ContentManager {
         catalogRoot = new BorderPane();
         catalogRoot.setPadding(new Insets(10));
 
-        Button btnAdd = new Button("Aggiungi Libro");
-        Button btnEdit = new Button("Modifica Libro");
-        Button btnRemove = new Button("Rimuovi Libro");
+        // Creiamo i pulsanti solo se NON siamo in ruolo UTENTE
+        Button btnAdd = null;
+        Button btnEdit = null;
+        Button btnRemove = null;
+
+        if (!SessionContext.isUtente()) {
+            btnAdd = new Button("Aggiungi Libro");
+            btnEdit = new Button("Modifica Libro");
+            btnRemove = new Button("Rimuovi Libro");
+        }
+
         txtSearchCatalog = new TextField();
         txtSearchCatalog.setPromptText("Cerca nel catalogo...");
-        HBox toolbar = new HBox(10, btnAdd, btnEdit, btnRemove, new Label("Ricerca:"), txtSearchCatalog);
+        HBox toolbar = new HBox(10);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
         toolbar.getStyleClass().add("toolbar");
+
+        // Aggiungi i controlli nella toolbar in modo dinamico
+        List<javafx.scene.Node> toolbarNodes = new ArrayList<>();
+        if (btnAdd != null) toolbarNodes.add(btnAdd);
+        if (btnEdit != null) toolbarNodes.add(btnEdit);
+        if (btnRemove != null) toolbarNodes.add(btnRemove);
+        toolbarNodes.add(new Label("Ricerca:"));
+        toolbarNodes.add(txtSearchCatalog);
+        toolbar.getChildren().addAll(toolbarNodes);
 
         catalogTable = new TableView<>();
         catalogTable.setPlaceholder(new Label("Nessun libro da mostrare"));
@@ -365,33 +505,40 @@ public class ContentManager {
             catalogFiltered.setPredicate(makeBookPredicate(q));
         });
 
-        btnAdd.setOnAction(e -> {
-            AddBookDialog dialog = new AddBookDialog();
-            dialog.showAndWait().ifPresent(bean -> {
-                boolean ok = bookController.aggiungiLibro(bean);
-                if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiunto."); }
-                else showError("Impossibile aggiungere il libro.");
+        // Event handlers solo se i pulsanti esistono (ruolo: Bibliotecario)
+        if (btnAdd != null) {
+            btnAdd.setOnAction(e -> {
+                AddBookDialog dialog = new AddBookDialog();
+                dialog.showAndWait().ifPresent(bean -> {
+                    boolean ok = bookController.aggiungiLibro(bean);
+                    if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiunto."); }
+                    else showError("Impossibile aggiungere il libro.");
+                });
             });
-        });
+        }
 
-        btnEdit.setOnAction(e -> {
-            Book selected = catalogTable.getSelectionModel().getSelectedItem();
-            if (selected == null) { showError("Seleziona un libro da modificare."); return; }
-            EditBookDialog dialog = new EditBookDialog(selected);
-            dialog.showAndWait().ifPresent(bean -> {
-                boolean ok = bookController.aggiornaLibro(bean);
-                if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiornato."); }
-                else showError("Impossibile aggiornare il libro.");
+        if (btnEdit != null) {
+            btnEdit.setOnAction(e -> {
+                Book selected = catalogTable.getSelectionModel().getSelectedItem();
+                if (selected == null) { showError("Seleziona un libro da modificare."); return; }
+                EditBookDialog dialog = new EditBookDialog(selected);
+                dialog.showAndWait().ifPresent(bean -> {
+                    boolean ok = bookController.aggiornaLibro(bean);
+                    if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiornato."); }
+                    else showError("Impossibile aggiornare il libro.");
+                });
             });
-        });
+        }
 
-        btnRemove.setOnAction(e -> {
-            Book selected = catalogTable.getSelectionModel().getSelectedItem();
-            if (selected == null) { showError("Seleziona un libro da rimuovere."); return; }
-            boolean ok = bookController.rimuoviLibro(selected.getId());
-            if (ok) { aggiornaCatalogoLibri(); showInfo("Libro rimosso dal database."); }
-            else showError("Impossibile rimuovere il libro. Verifica che non abbia prestiti attivi.");
-        });
+        if (btnRemove != null) {
+            btnRemove.setOnAction(e -> {
+                Book selected = catalogTable.getSelectionModel().getSelectedItem();
+                if (selected == null) { showError("Seleziona un libro da rimuovere."); return; }
+                boolean ok = bookController.rimuoviLibro(selected.getId());
+                if (ok) { aggiornaCatalogoLibri(); showInfo("Libro rimosso dal database."); }
+                else showError("Impossibile rimuovere il libro. Verifica che non abbia prestiti attivi.");
+            });
+        }
 
         catalogRoot.setTop(toolbar);
         catalogRoot.setCenter(catalogTable);
@@ -564,7 +711,7 @@ public class ContentManager {
             AddEditUserDialog dlg = new AddEditUserDialog(utenteController, sel);
             dlg.showAndWait().ifPresent(bean -> {
                 bean.setId(sel.getId());
-                if (utenteController.aggiorna(bean)) {
+                if (utenteController.aggiorna(bean)) { // attenzione: qui era 'aggiorna' nel progetto; adattalo se diverso
                     aggiornaUtenti();
                     showInfo("Utente aggiornato.");
                 } else {
@@ -667,6 +814,7 @@ public class ContentManager {
             }
             catalogData.setAll(libri);
         } catch (Exception e) {
+            e.printStackTrace();
             showError("Errore nell'aggiornamento del catalogo: " + e.getMessage());
         }
     }
@@ -680,6 +828,7 @@ public class ContentManager {
             loansData.setAll(prestiti);
             applyLoansPredicate();
         } catch (Exception e) {
+            e.printStackTrace();
             showError("Errore nell'aggiornamento dei prestiti: " + e.getMessage());
         }
     }
@@ -693,6 +842,7 @@ public class ContentManager {
             usersData.setAll(utenti);
             applyUsersPredicate();
         } catch (Exception e) {
+            e.printStackTrace();
             showError("Errore nell'aggiornamento degli utenti: " + e.getMessage());
         }
     }

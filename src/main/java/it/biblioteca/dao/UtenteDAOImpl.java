@@ -104,7 +104,8 @@ public class UtenteDAOImpl implements UtenteDAO {
     private Utente map(ResultSet rs) throws SQLException {
         Utente u = new Utente();
         u.setId(rs.getLong("id"));
-        u.setTessera((Integer) rs.getObject("tessera"));
+        Object tessObj = rs.getObject("tessera");
+        u.setTessera(tessObj != null ? ((Number) tessObj).intValue() : null);
         u.setNome(rs.getString("nome"));
         u.setCognome(rs.getString("cognome"));
         u.setEmail(rs.getString("email"));
@@ -114,5 +115,21 @@ public class UtenteDAOImpl implements UtenteDAO {
         u.setDataAttivazione(dA != null ? dA.toLocalDate() : null);
         u.setDataScadenza(dS != null ? dS.toLocalDate() : null);
         return u;
+    }
+
+    @Override
+    public Utente findByEmailOrUsername(String identifier) {
+        String sql = "SELECT id, tessera, nome, cognome, email, telefono, data_attivazione, data_scadenza FROM utenti WHERE email = ? OR nome = ? LIMIT 1";
+        try (Connection c = db.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, identifier);
+            ps.setString(2, identifier);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return map(rs);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Errore findByEmailOrUsername", e);
+        }
+        return null;
     }
 }

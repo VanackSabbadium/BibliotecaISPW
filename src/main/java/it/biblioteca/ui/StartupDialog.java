@@ -32,9 +32,7 @@ public class StartupDialog extends Dialog<StartupResult> {
         cmbTheme.getItems().addAll(Theme.COLORI, Theme.BIANCO_NERO);
         cmbTheme.getSelectionModel().select(Theme.COLORI);
 
-        TextField txtTessera = new TextField();
-        txtTessera.setPromptText("Numero tessera (richiesto per 'Utente')");
-        txtTessera.setDisable(true);
+        // Rimosso campo tessera: l'utente non deve inserirlo in login.
 
         grid.add(new Label("Utente:"), 0, 0);
         grid.add(txtUser, 1, 0);
@@ -42,8 +40,6 @@ public class StartupDialog extends Dialog<StartupResult> {
         grid.add(txtPass, 1, 1);
         grid.add(new Label("Tema:"), 0, 2);
         grid.add(cmbTheme, 1, 2);
-        grid.add(new Label("Tessera:"), 0, 3);
-        grid.add(txtTessera, 1, 3);
 
         getDialogPane().setContent(grid);
 
@@ -53,39 +49,29 @@ public class StartupDialog extends Dialog<StartupResult> {
         Runnable validate = () -> {
             String u = txtUser.getText();
             String p = txtPass.getText();
-            boolean needTessera = (u != null && u.equalsIgnoreCase("Utente"));
-            txtTessera.setDisable(!needTessera);
-            boolean valid = u != null && !u.isBlank()
-                    && p != null && !p.isBlank()
-                    && (!needTessera || (txtTessera.getText() != null && !txtTessera.getText().isBlank()));
+            boolean valid = u != null && !u.isBlank() && p != null && !p.isBlank() && cmbTheme.getValue() != null;
             okBtn.setDisable(!valid);
         };
 
         txtUser.textProperty().addListener((o, a, b) -> validate.run());
         txtPass.textProperty().addListener((o, a, b) -> validate.run());
-        txtTessera.textProperty().addListener((o, a, b) -> validate.run());
+        cmbTheme.valueProperty().addListener((o, a, b) -> validate.run());
         validate.run();
 
         setResultConverter(bt -> {
             if (bt == okButtonType) {
-                Integer tessera = null;
-                String u = txtUser.getText();
-                if (u != null && u.equalsIgnoreCase("Utente")) {
-                    try {
-                        tessera = Integer.parseInt(txtTessera.getText().trim());
-                    } catch (NumberFormatException ex) {
-                        return null;
-                    }
-                }
-                return new StartupResult(txtUser.getText().trim(),
+                // La tessera non è richiesta nella schermata di login: la lasciamo a null
+                return new StartupResult(
+                        txtUser.getText().trim(),
                         txtPass.getText(),
                         cmbTheme.getValue(),
-                        tessera);
+                        null
+                );
             }
             return null;
         });
     }
 
-    // Importante: non sovrascrivere showAndWait(). Usa direttamente il metodo ereditato:
+    // Non sovrascrivere showAndWait(); usare direttamente il metodo ereditato:
     // Optional<StartupResult> result = new StartupDialog().showAndWait();
 }

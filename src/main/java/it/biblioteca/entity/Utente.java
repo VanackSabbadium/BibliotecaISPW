@@ -9,12 +9,14 @@ public class Utente {
     private String cognome;
     private String email;
     private String telefono;
+    private LocalDate dataAttivazione;
+    private LocalDate dataScadenza;
+    private String password; // se presente
 
-    private LocalDate dataAttivazione; // nuova
-    private LocalDate dataScadenza;    // nuova
-
+    // costruttori
     public Utente() {}
 
+    // getters e setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -39,15 +41,17 @@ public class Utente {
     public LocalDate getDataScadenza() { return dataScadenza; }
     public void setDataScadenza(LocalDate dataScadenza) { this.dataScadenza = dataScadenza; }
 
-    // Calcolato: attivo se oggi è tra dataAttivazione e dataScadenza (estremi inclusi).
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+
+    // --- Nuovi helper usati nell'interfaccia ---
     public boolean isAttivo() {
-        LocalDate today = LocalDate.now();
-        if (dataAttivazione != null && today.isBefore(dataAttivazione)) return false;
-        if (dataScadenza != null && today.isAfter(dataScadenza)) return false;
-        return true;
+        LocalDate oggi = LocalDate.now();
+        if (dataAttivazione == null) return false;
+        if (dataScadenza == null) return !dataAttivazione.isAfter(oggi); // attivato e senza scadenza
+        return !dataScadenza.isBefore(oggi) && !dataAttivazione.isAfter(oggi);
     }
 
-    // Utile per la colonna "Stato" nella tabella
     public String getStato() {
         return isAttivo() ? "Attivo" : "Inattivo";
     }

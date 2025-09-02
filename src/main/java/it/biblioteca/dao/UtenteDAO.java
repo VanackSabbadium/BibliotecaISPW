@@ -10,4 +10,5 @@ public interface UtenteDAO {
     boolean inserisci(Utente u);
     boolean aggiorna(Utente u);
     boolean elimina(Long id);
+    Utente findByEmailOrUsername(String identifier);
 }

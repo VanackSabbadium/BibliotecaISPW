@@ -27,6 +27,11 @@
             <artifactId>javafx-fxml</artifactId>
             <version>${javafx.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+            <version>3.5.2</version>
+        </dependency>
         <!-- Aggiungi se usi altre parti di JavaFX:
         <dependency>
             <groupId>org.openjfx</groupId>

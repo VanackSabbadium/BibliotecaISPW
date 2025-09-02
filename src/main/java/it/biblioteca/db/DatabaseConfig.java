@@ -38,9 +38,9 @@ public final class DatabaseConfig {
     public static String getDatabase() { return DEFAULT_DATABASE; }
 
     public static String buildJdbcUrl() {
-        // Adatta al tuo driver se differente (es. MySQL, SQLServer)
-        return "jdbc:mariadb://" + DEFAULT_HOST + ":" + DEFAULT_PORT + "/" + DEFAULT_DATABASE;
+        return "jdbc:mariadb://127.0.0.1:3306/biblioteca?useUnicode=true&characterEncoding=UTF-8";
     }
+
 
     // Verifica le credenziali provando ad aprire una connessione
     public static boolean testCredentials(String user, String pass) {

@@ -18,9 +18,7 @@ public class JdbcUtenteDAO implements UtenteDAO {
 
     @Override
     public List<Utente> trovaTutti() {
-        // Bibliotecario: legge l'intera tabella.
-        // Utente: legge solo dalla vista 'utenti_self' (filtrata da set/get_app_tessera()).
-        final boolean selfOnly = SessionContext.isUtente();
+        final boolean selfOnly = SessionContext.isUtente() && SessionContext.getTessera() != null;
         final String sql = selfOnly
                 ? "SELECT id, tessera, nome, cognome, email, telefono, data_attivazione, data_scadenza FROM utenti_self"
                 : "SELECT id, tessera, nome, cognome, email, telefono, data_attivazione, data_scadenza FROM utenti";
@@ -41,7 +39,7 @@ public class JdbcUtenteDAO implements UtenteDAO {
 
     @Override
     public Utente trovaPerId(Long id) {
-        final boolean selfOnly = SessionContext.isUtente();
+        final boolean selfOnly = SessionContext.isUtente() && SessionContext.getTessera() != null;
         final String sql = selfOnly
                 ? "SELECT id, tessera, nome, cognome, email, telefono, data_attivazione, data_scadenza FROM utenti_self WHERE id=?"
                 : "SELECT id, tessera, nome, cognome, email, telefono, data_attivazione, data_scadenza FROM utenti WHERE id=?";
@@ -120,11 +118,27 @@ public class JdbcUtenteDAO implements UtenteDAO {
         }
     }
 
+    @Override
+    public Utente findByEmailOrUsername(String identifier) {
+        String sql = "SELECT id, tessera, nome, cognome, email, telefono, data_attivazione, data_scadenza FROM utenti WHERE email = ? OR nome = ? LIMIT 1";
+        try (Connection c = cp.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, identifier);
+            ps.setString(2, identifier);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return mapRow(rs);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Errore findByEmailOrUsername", e);
+        }
+        return null;
+    }
+
     private Utente mapRow(ResultSet rs) throws SQLException {
         Utente u = new Utente();
         u.setId(rs.getLong("id"));
-        Object tessera = rs.getObject("tessera");
-        u.setTessera(tessera != null ? ((Number) tessera).intValue() : null);
+        Object tess = rs.getObject("tessera");
+        u.setTessera(tess != null ? ((Number) tess).intValue() : null);
         u.setNome(rs.getString("nome"));
         u.setCognome(rs.getString("cognome"));
         u.setEmail(rs.getString("email"));
