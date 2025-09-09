@@ -1,8 +1,8 @@
 package it.biblioteca.dao;
 
 import it.biblioteca.bean.PrestitoBean;
-import it.biblioteca.config.DatabaseConfig;
 import it.biblioteca.entity.Prestito;
+import it.biblioteca.db.DatabaseConfig;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;

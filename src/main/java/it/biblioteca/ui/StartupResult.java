@@ -6,19 +6,13 @@ public class StartupResult {
     private final String username;
     private final String password;
     private final Theme theme;
-    private final Integer tessera; // opzionale, può essere null
 
-    public StartupResult(String username, String password, Theme theme, Integer tessera) {
+    public StartupResult(String username, String password, Theme theme) {
         this.username = username;
         this.password = password;
         this.theme = theme;
-        this.tessera = tessera;
     }
 
-    /**
-     * Ora la validazione non richiede la tessera al login.
-     * La tessera rimane opzionale (null) perché la schermata di login non la richiede più.
-     */
     public boolean isValid() {
         return username != null && !username.isBlank()
                 && password != null && !password.isBlank()
@@ -28,5 +22,4 @@ public class StartupResult {
     public String getUsername() { return username; }
     public String getPassword() { return password; }
     public Theme getTheme() { return theme; }
-    public Integer getTessera() { return tessera; }
 }

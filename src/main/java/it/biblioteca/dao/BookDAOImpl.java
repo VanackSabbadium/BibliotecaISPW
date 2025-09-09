@@ -1,7 +1,7 @@
 // src/main/java/it/biblioteca/dao/BookDAOImpl.java
 package it.biblioteca.dao;
 
-import it.biblioteca.config.DatabaseConfig;
+import it.biblioteca.db.DatabaseConfig;
 import it.biblioteca.entity.Book;
 
 import java.sql.*;

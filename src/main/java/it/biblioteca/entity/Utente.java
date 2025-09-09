@@ -11,12 +11,13 @@ public class Utente {
     private String telefono;
     private LocalDate dataAttivazione;
     private LocalDate dataScadenza;
-    private String password; // se presente
 
-    // costruttori
+    // campi aggiunti per mostrare username/password nella UI (Admin)
+    private String username;
+    private String password; // password in chiaro (se presente in DB) — attenzione alla sicurezza
+
     public Utente() {}
 
-    // getters e setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -41,18 +42,14 @@ public class Utente {
     public LocalDate getDataScadenza() { return dataScadenza; }
     public void setDataScadenza(LocalDate dataScadenza) { this.dataScadenza = dataScadenza; }
 
+    // --- nuovi getter/setter per username/password (popolati dal DAO con LEFT JOIN su credenziali) ---
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+
+    /**
+     * NOTA: questo campo contiene la password in chiaro se la colonna password_plain è presente
+     * e valorizzata nel DB. Per ragioni di sicurezza valutare di non salvare password in chiaro.
+     */
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
-
-    // --- Nuovi helper usati nell'interfaccia ---
-    public boolean isAttivo() {
-        LocalDate oggi = LocalDate.now();
-        if (dataAttivazione == null) return false;
-        if (dataScadenza == null) return !dataAttivazione.isAfter(oggi); // attivato e senza scadenza
-        return !dataScadenza.isBefore(oggi) && !dataAttivazione.isAfter(oggi);
-    }
-
-    public String getStato() {
-        return isAttivo() ? "Attivo" : "Inattivo";
-    }
 }

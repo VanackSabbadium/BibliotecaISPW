@@ -1,39 +1,50 @@
 package it.biblioteca.ui;
 
+import it.biblioteca.bean.BookBean;
+import it.biblioteca.bean.PrestitoBean;
 import it.biblioteca.controller.BookController;
+import it.biblioteca.controller.PrenotazioneController;
 import it.biblioteca.controller.PrestitoController;
 import it.biblioteca.controller.UtenteController;
-import it.biblioteca.db.DatabaseConfig;
 import it.biblioteca.entity.Book;
 import it.biblioteca.entity.Prestito;
 import it.biblioteca.entity.Utente;
+import it.biblioteca.security.AuthService;
 import it.biblioteca.security.SessionContext;
 import javafx.application.Platform;
+import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.collections.transformation.SortedList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.util.Pair;
 
 import java.net.URL;
 import java.time.LocalDate;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+/**
+ * ContentManager: gestisce la costruzione dinamica dei contenuti (tabs + sidebar)
+ * in funzione del ruolo corrente (SessionContext).
+ *
+ * Nota: il costruttore ora richiede i quattro controller usati nell'app.
+ */
 public class ContentManager {
-    private final BookController bookController;
-    private final PrestitoController prestitoController;
-    private final UtenteController utenteController;
-
-    private BorderPane rootContainer;
 
     public enum Theme { COLORI, BIANCO_NERO }
 
@@ -42,15 +53,24 @@ public class ContentManager {
     private static final String THEME_COLORI_CLASS = "theme-color";
     private static final String THEME_BW_CLASS     = "theme-bw";
 
-    private Theme currentTheme = Theme.COLORI;
+    private final BookController bookController;
+    private final PrestitoController prestitoController;
+    private final UtenteController utenteController;
+    private final PrenotazioneController prenotazioneController;
 
+    // UI root references
+    private BorderPane rootContainer;
     private TabPane tabPane;
     private Tab homeTab;
     private Tab catalogTab;
     private Tab loansTab;
     private Tab usersTab;
+    private Tab profileTab;
+    private Tab myLoansTab; // tab specifica per utente (i miei prestiti)
 
-    // Catalogo
+    private Theme currentTheme = Theme.COLORI;
+
+    // Catalogo: fields (in modo da poterli abilitare/disabilitare in updateUIForRole)
     private TableView<Book> catalogTable;
     private ObservableList<Book> catalogData;
     private FilteredList<Book> catalogFiltered;
@@ -58,7 +78,12 @@ public class ContentManager {
     private TextField txtSearchCatalog;
     private BorderPane catalogRoot;
 
-    // Prestiti
+    // Catalog buttons (campi per poterli abilitare/disabilitare)
+    private Button btnAddBook;
+    private Button btnEditBook;
+    private Button btnRemoveBook;
+
+    // Prestiti (bibliotecario)
     private TableView<Prestito> loansTable;
     private ObservableList<Prestito> loansData;
     private FilteredList<Prestito> loansFiltered;
@@ -76,77 +101,159 @@ public class ContentManager {
     private ComboBox<String> cmbUserFilter;
     private BorderPane usersRoot;
 
-    public ContentManager(BookController bookController, PrestitoController prestitoController, UtenteController utenteController) {
+    // Miei prestiti (utente)
+    private TableView<Prestito> myLoansTable;
+    private ObservableList<Prestito> myLoansData;
+    private FilteredList<Prestito> myLoansFiltered;
+    private SortedList<Prestito> myLoansSorted;
+    private TextField txtSearchMyLoans;
+    private ComboBox<String> cmbMyLoansFilter;
+    private BorderPane myLoansRoot;
+
+    public ContentManager(BookController bookController,
+                          PrestitoController prestitoController,
+                          UtenteController utenteController,
+                          PrenotazioneController prenotazioneController) {
         this.bookController = bookController;
         this.prestitoController = prestitoController;
         this.utenteController = utenteController;
+        this.prenotazioneController = prenotazioneController;
 
         this.catalogData = FXCollections.observableArrayList();
         this.loansData = FXCollections.observableArrayList();
         this.usersData = FXCollections.observableArrayList();
+        this.myLoansData = FXCollections.observableArrayList();
     }
 
+    public ContentManager(BookController bookController,
+                          PrestitoController prestitoController,
+                          UtenteController utenteController) {
+        this(bookController, prestitoController, utenteController, null);
+    }
+
+    /**
+     * Inizializza il contenuto (esegue login DB tramite StartupDialog,
+     * poi login applicativo tramite AuthService e infine costruisce UI).
+     */
     public void inizializzaContenuto(BorderPane root) {
         this.rootContainer = root;
 
-        // Loop di login: chiedi credenziali + tema finché non sono valide o l'utente chiude
+        // 1) Login / configurazione DB (riuso StartupDialog per ottenere username/password e tema)
         while (true) {
             StartupDialog dlg = new StartupDialog();
             Optional<StartupResult> res = dlg.showAndWait();
 
             if (res.isEmpty()) {
-                Platform.exit(); // utente ha chiuso il dialog
+                Platform.exit();
                 return;
             }
             StartupResult r = res.get();
             if (r == null || !r.isValid()) {
-                showError("Inserisci username e password.");
+                showError("Inserisci username e password per il DB.");
                 continue;
             }
 
-            boolean ok = DatabaseConfig.testCredentials(r.getUsername(), r.getPassword());
+            // Prova a configurare le credenziali JDBC
+            boolean ok = it.biblioteca.db.DatabaseConfig.testCredentials(r.getUsername(), r.getPassword());
             if (ok) {
-                DatabaseConfig.apply(r); // salva user/pass
-
-                // --- imposta il contesto di sessione (ruolo/tessera) qui ---
-                if ("Utente".equalsIgnoreCase(r.getUsername())) {
-                    SessionContext.setRole(SessionContext.AppRole.UTENTE);
-                    SessionContext.setTessera(r.getTessera()); // può essere null
-                } else {
-                    SessionContext.setRole(SessionContext.AppRole.BIBLIOTECARIO);
-                    SessionContext.setTessera(null);
-                }
-                // ---------------------------------------------------------------
-
+                it.biblioteca.db.DatabaseConfig.apply(r);
                 this.currentTheme = r.getTheme();
-                applyTheme(); // applica CSS e style class al root
-                break; // esci dal loop e costruisci la UI
+                applyTheme();
+                break;
             } else {
-                showError("Credenziali non valide. Riprova.");
+                showError("Credenziali DB non valide. Riprova.");
             }
         }
 
-        // Costruzione UI principale
-        tabPane = new TabPane();
+        // 2) Login applicativo (AuthService) - richiedi username/password dell'app
+        boolean appLogged = performAppLogin();
+        if (!appLogged) {
+            // se l'utente ha annullato, esci
+            Platform.exit();
+            return;
+        }
 
-        // Home migliorata, non chiudibile
+        // 3) Costruzione UI base
+        tabPane = new TabPane();
         homeTab = new Tab("Home", buildHomeView());
         homeTab.setClosable(false);
-
-        // Avvio con sola Home aperta
         tabPane.getTabs().add(homeTab);
 
-        // Sidebar sinistra con "Esci" sotto le voci (adattata al ruolo)
+        // Left sidebar dinamico
         VBox leftBar = buildLeftSidebar();
+        root.setLeft(leftBar);
 
-        rootContainer.setLeft(leftBar);
-        rootContainer.setCenter(tabPane);
+        // center
+        root.setCenter(tabPane);
 
-        if (rootContainer.getScene() == null) {
-            Platform.runLater(this::applyTheme);
-        }
+        // inizializza tabs lazy
+        // Carica contenuti iniziali
+        aggiornaCatalogoLibri();
+        aggiornaPrestiti();
+        aggiornaUtenti();
+        aggiornaMyPrestiti(); // carica anche i miei prestiti (se utente)
     }
 
+    // -------------------------
+    // Login applicativo con AuthService
+    // -------------------------
+    private boolean performAppLogin() {
+        // Dialog semplice per credenziali applicative (utente/password)
+        Dialog<Pair<String, String>> dlg = new Dialog<>();
+        dlg.setTitle("Login Applicativo");
+        dlg.setHeaderText("Inserisci username e password applicative");
+
+        ButtonType okType = new ButtonType("Accedi", ButtonBar.ButtonData.OK_DONE);
+        dlg.getDialogPane().getButtonTypes().addAll(okType, ButtonType.CANCEL);
+
+        GridPane g = new GridPane();
+        g.setHgap(8); g.setVgap(8); g.setPadding(new Insets(10));
+
+        TextField txtUser = new TextField();
+        txtUser.setPromptText("Username");
+        PasswordField txtPass = new PasswordField();
+        txtPass.setPromptText("Password");
+
+        g.add(new Label("Username:"), 0, 0);
+        g.add(txtUser, 1, 0);
+        g.add(new Label("Password:"), 0, 1);
+        g.add(txtPass, 1, 1);
+
+        dlg.getDialogPane().setContent(g);
+
+        // Abilita ok solo se riempiti
+        Node okBtn = dlg.getDialogPane().lookupButton(okType);
+        okBtn.setDisable(true);
+        Runnable validate = () -> okBtn.setDisable(txtUser.getText().isBlank() || txtPass.getText().isBlank());
+        txtUser.textProperty().addListener((o, a, b) -> validate.run());
+        txtPass.textProperty().addListener((o, a, b) -> validate.run());
+        validate.run();
+
+        dlg.setResultConverter(bt -> bt == okType ? new Pair<>(txtUser.getText().trim(), txtPass.getText()) : null);
+
+        Optional<Pair<String, String>> res = dlg.showAndWait();
+        if (res.isEmpty()) return false;
+        Pair<String, String> pair = res.get();
+
+        AuthService.AuthResult ar = AuthService.authenticate(pair.getKey(), pair.getValue());
+        if (!ar.ok) {
+            showError("Credenziali applicative non valide.");
+            return performAppLogin(); // riprova (ricorsione semplice)
+        }
+
+        // Imposta SessionContext
+        SessionContext.setRole(ar.role);
+        SessionContext.setUserId(ar.userId);
+        SessionContext.setTessera(ar.tessera);
+
+        // Ri-configura UI in base al ruolo (sidebar e tabs)
+        updateUIForRole();
+        return true;
+    }
+
+    // -------------------------
+    // Left sidebar costruita dinamicamente
+    // -------------------------
     private VBox buildLeftSidebar() {
         Button btnHome = new Button("Home");
         btnHome.setMaxWidth(Double.MAX_VALUE);
@@ -164,322 +271,122 @@ public class ContentManager {
         btnUsers.setMaxWidth(Double.MAX_VALUE);
         btnUsers.setOnAction(e -> mostraUtenti());
 
-        Button btnChangeUser = new Button("Cambia utente");
-        btnChangeUser.setMaxWidth(Double.MAX_VALUE);
-        btnChangeUser.setOnAction(e -> switchUser()); // nuova funzionalità
+        Button btnProfile = new Button("Il mio profilo");
+        btnProfile.setMaxWidth(Double.MAX_VALUE);
+        btnProfile.setOnAction(e -> mostraProfiloUtente());
+
+        Button btnMyLoans = new Button("I miei prestiti");
+        btnMyLoans.setMaxWidth(Double.MAX_VALUE);
+        btnMyLoans.setOnAction(e -> mostraMieiPrestiti());
 
         Button btnExit = new Button("Esci");
         btnExit.setMaxWidth(Double.MAX_VALUE);
         btnExit.setOnAction(e -> Platform.exit());
 
         VBox left = new VBox(8);
-
-        // Se l'utente è un UTENTE normale, non aggiungiamo i pulsanti Prestiti e Utenti
-        if (SessionContext.isUtente()) {
-            left.getChildren().addAll(btnHome, btnCatalog, btnChangeUser, btnExit);
-        } else {
-            // Bibliotecario vede tutto
-            left.getChildren().addAll(btnHome, btnCatalog, btnLoans, btnUsers, btnChangeUser, btnExit);
-        }
-
         left.setPadding(new Insets(10));
         left.setFillWidth(true);
-        left.getStyleClass().add("sidebar"); // per styling CSS se serve
+        left.getStyleClass().add("sidebar");
+
+        // Scegli cosa mostrare in base al ruolo attuale
+        if (SessionContext.isAdmin()) {
+            left.getChildren().addAll(btnHome, btnUsers, btnExit);
+        } else if (SessionContext.isBibliotecario()) {
+            left.getChildren().addAll(btnHome, btnCatalog, btnLoans, btnUsers, btnExit);
+        } else if (SessionContext.isUtente()) {
+            left.getChildren().addAll(btnHome, btnCatalog, btnMyLoans, btnProfile, btnExit);
+        } else {
+            left.getChildren().addAll(btnHome, btnExit);
+        }
+
         return left;
     }
 
-    /**
-     * Mostra il dialog di login per cambiare utente. Se le nuove credenziali sono valide,
-     * applica il nuovo contesto e ricostruisce la UI (sidebar, home, e svuota i contenuti delle tab).
-     */
-    private void switchUser() {
-        StartupDialog dlg = new StartupDialog();
-        Optional<StartupResult> res = dlg.showAndWait();
-
-        if (res.isEmpty()) {
-            // l'utente ha annullato -> non cambiare nulla
-            return;
-        }
-        StartupResult r = res.get();
-        if (r == null || !r.isValid()) {
-            showError("Inserisci username e password.");
-            return;
-        }
-
-        boolean ok = DatabaseConfig.testCredentials(r.getUsername(), r.getPassword());
-        if (!ok) {
-            showError("Credenziali non valide. Ritorno alla sessione corrente.");
-            return;
-        }
-
-        // Applichiamo le nuove credenziali al DatabaseConfig
-        DatabaseConfig.apply(r);
-
-        // Impostiamo il contesto di sessione
-        if ("Utente".equalsIgnoreCase(r.getUsername())) {
-            SessionContext.setRole(SessionContext.AppRole.UTENTE);
-            SessionContext.setTessera(r.getTessera()); // può essere null
-        } else {
-            SessionContext.setRole(SessionContext.AppRole.BIBLIOTECARIO);
-            SessionContext.setTessera(null);
-        }
-
-        // Aggiorniamo il tema
-        this.currentTheme = r.getTheme();
-        applyTheme();
-
-        // Resettiamo lo stato delle view/tab in modo che vengano ricreate al primo accesso
-        try {
-            // svuota dati e forzi ricostruzione
-            if (catalogData != null) catalogData.clear();
-            if (loansData != null) loansData.clear();
-            if (usersData != null) usersData.clear();
-
-            catalogRoot = null;
-            loansRoot = null;
-            usersRoot = null;
-            catalogTable = null;
-            loansTable = null;
-            usersTable = null;
-
-            // ricostruisci la home e la sidebar
-            if (homeTab == null) {
-                homeTab = new Tab("Home", buildHomeView());
-                homeTab.setClosable(false);
-            } else {
-                homeTab.setContent(buildHomeView());
-            }
-
-            // puliamo tutte le tab aperte e lasciamo solo la home
-            if (tabPane != null) {
-                tabPane.getTabs().clear();
-                tabPane.getTabs().add(homeTab);
-            }
-
-            // ricostruisci la sidebar
-            if (rootContainer != null) {
-                rootContainer.setLeft(buildLeftSidebar());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            showError("Si è verificato un errore durante il cambio utente: " + e.getMessage());
-        }
-    }
-
-    private VBox buildHomeView() {
+    // -------------------------
+    // Home view (aggiornabile)
+    // -------------------------
+    private BorderPane buildHomeView() {
+        BorderPane p = new BorderPane();
+        p.setPadding(new Insets(20));
         Label title = new Label("Benvenuto nella Biblioteca");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
-        String infoText;
-        if (SessionContext.isUtente()) {
-            infoText = "Cosa puoi fare (Utente):\n" +
-                    "• Visualizzare il catalogo libri.\n" +
-                    "• Applicare filtri e ricerche per trovare libri.\n\n" +
-                    "Note:\n" +
-                    "• Non puoi aggiungere/modificare/rimuovere libri.\n" +
-                    "• Non puoi visualizzare né registrare prestiti o gestire utenti.";
-        } else {
-            infoText = "Cosa puoi fare (Bibliotecario):\n" +
-                    "• Gestire il catalogo libri (aggiungere, modificare, rimuovere).\n" +
-                    "• Registrare prestiti e restituzioni.\n" +
-                    "• Gestire gli utenti (creazione, modifica, eliminazione).\n\n" +
-                    "Limitazioni e note:\n" +
-                    "• Alcune operazioni richiedono connessione attiva al database.\n" +
-                    "• Non è possibile rimuovere un libro con prestiti attivi.\n" +
-                    "• Verifica sempre le date di attivazione/scadenza per gli utenti.";
-        }
-
-        Label info = new Label(infoText);
+        Label info = new Label(getHomeDescriptionForRole());
         info.setWrapText(true);
 
         Button btnGoCatalog = new Button("Apri Catalogo");
         btnGoCatalog.setOnAction(e -> mostraCatalogoLibri());
+        Button btnGoLoans = new Button("Apri Prestiti");
+        btnGoLoans.setOnAction(e -> mostraPrestiti());
+        Button btnGoUsers = new Button("Apri Utenti");
+        btnGoUsers.setOnAction(e -> mostraUtenti());
+        Button btnExit = new Button("Esci");
+        btnExit.setOnAction(e -> Platform.exit());
 
-        HBox actions;
-        if (SessionContext.isUtente()) {
-            Button btnExit = new Button("Esci");
-            btnExit.setOnAction(e -> Platform.exit());
-            actions = new HBox(10, btnGoCatalog, btnExit);
-        } else {
-            Button btnGoLoans = new Button("Apri Prestiti");
-            btnGoLoans.setOnAction(e -> mostraPrestiti());
-            Button btnGoUsers = new Button("Apri Utenti");
-            btnGoUsers.setOnAction(e -> mostraUtenti());
-            Button btnExit = new Button("Esci");
-            btnExit.setOnAction(e -> Platform.exit());
-            actions = new HBox(10, btnGoCatalog, btnGoLoans, btnGoUsers, btnExit);
-        }
-
+        HBox actions = new HBox(10, btnGoCatalog, btnGoLoans, btnGoUsers, btnExit);
         actions.setAlignment(Pos.CENTER);
 
         VBox box = new VBox(15, title, info, actions);
         box.setPadding(new Insets(20));
         box.setAlignment(Pos.CENTER);
-        return box;
+
+        p.setCenter(box);
+        return p;
     }
 
-    public void mostraHome() {
-        tabPane.getSelectionModel().select(homeTab);
+    private String getHomeDescriptionForRole() {
+        if (SessionContext.isBibliotecario()) {
+            return "Sei connesso come Bibliotecario. Puoi gestire catalogo, prestiti e utenti.";
+        } else if (SessionContext.isAdmin()) {
+            return "Sei connesso come Admin. Puoi creare/modificare/rimuovere le credenziali degli utenti (create dal Bibliotecario).";
+        } else if (SessionContext.isUtente()) {
+            return "Sei connesso come Utente. Puoi visualizzare il catalogo, visualizzare il tuo profilo e i tuoi prestiti (attivi e storici), e prenotare libri se le copie sono terminate.";
+        } else {
+            return "Effettua il login per continuare.";
+        }
     }
 
+    private void updateHomeDescription() {
+        if (homeTab != null && homeTab.getContent() instanceof BorderPane) {
+            homeTab.setContent(buildHomeView());
+        }
+    }
+
+    // -------------------------
+    // Manage Catalog Tab
+    // -------------------------
     public void mostraCatalogoLibri() {
         ensureCatalogTab();
         tabPane.getSelectionModel().select(catalogTab);
         aggiornaCatalogoLibri();
     }
 
-    public void mostraPrestiti() {
-        ensureLoansTab();
-        tabPane.getSelectionModel().select(loansTab);
-        aggiornaPrestiti();
-    }
-
-    public void mostraUtenti() {
-        ensureUsersTab();
-        tabPane.getSelectionModel().select(usersTab);
-        aggiornaUtenti();
-    }
-
-    public void cambiaTema(Theme theme) {
-        this.currentTheme = theme != null ? theme : Theme.COLORI;
-        applyTheme();
-    }
-
-    private void applyTheme() {
-        if (rootContainer == null) return;
-
-        rootContainer.getStyleClass().removeAll(THEME_COLORI_CLASS, THEME_BW_CLASS);
-        String themeClass = (currentTheme == Theme.BIANCO_NERO) ? THEME_BW_CLASS : THEME_COLORI_CLASS;
-        if (!rootContainer.getStyleClass().contains(themeClass)) {
-            rootContainer.getStyleClass().add(themeClass);
-        }
-
-        rootContainer.getStylesheets().removeIf(s -> s.endsWith("theme-color.css") || s.endsWith("theme-bw.css"));
-        Scene scene = rootContainer.getScene();
-        if (scene != null) {
-            scene.getStylesheets().removeIf(s -> s.endsWith("theme-color.css") || s.endsWith("theme-bw.css"));
-        }
-
-        String cssPath = (currentTheme == Theme.BIANCO_NERO) ? THEME_BW_CSS : THEME_COLORI_CSS;
-        URL url = resolveCss(cssPath);
-
-        if (url != null) {
-            String external = url.toExternalForm();
-            if (scene != null) {
-                if (!scene.getStylesheets().contains(external)) {
-                    scene.getStylesheets().add(external);
-                }
-            } else {
-                if (!rootContainer.getStylesheets().contains(external)) {
-                    rootContainer.getStylesheets().add(external);
-                }
-            }
-            rootContainer.setStyle("");
-        } else {
-            System.err.println("WARN: tema CSS non trovato sul classpath: " + cssPath + " — applico fallback inline.");
-            if (currentTheme == Theme.BIANCO_NERO) {
-                rootContainer.setStyle("-fx-accent: #000000; -fx-focus-color: #000000; -fx-base: #f2f2f2;");
-            } else {
-                rootContainer.setStyle("-fx-accent: #3f51b5; -fx-focus-color: #3f51b5; -fx-base: #f6f7fb;");
-            }
-        }
-    }
-
-    private URL resolveCss(String path) {
-        URL u = getClass().getResource(path);
-        if (u == null) {
-            String noSlash = path.startsWith("/") ? path.substring(1) : path;
-            u = getClass().getResource("/" + noSlash);
-            if (u == null) {
-                u = Thread.currentThread().getContextClassLoader().getResource(noSlash);
-                if (u == null) {
-                    u = ContentManager.class.getResource(path);
-                }
-            }
-        }
-        return u;
-    }
-
     private void ensureCatalogTab() {
         if (catalogTab == null) {
             catalogTab = new Tab("Catalogo");
-            catalogTab.setClosable(true); // chiudibile
-        }
-        if (!tabPane.getTabs().contains(catalogTab)) tabPane.getTabs().add(catalogTab);
-        if (catalogRoot == null) {
+            catalogTab.setClosable(true);
             buildCatalogView();
             catalogTab.setContent(catalogRoot);
         }
-    }
-
-    private void ensureLoansTab() {
-        if (SessionContext.isUtente()) {
-            // se utente normale, non creare la tab prestiti
-            return;
-        }
-        if (loansTab == null) {
-            loansTab = new Tab("Prestiti");
-            loansTab.setClosable(true); // chiudibile
-        }
-        if (!tabPane.getTabs().contains(loansTab)) tabPane.getTabs().add(loansTab);
-        if (loansRoot == null) {
-            buildLoansView();
-            loansTab.setContent(loansRoot);
-        }
-    }
-
-    private void ensureUsersTab() {
-        if (SessionContext.isUtente()) {
-            // user non deve vedere la tab utenti
-            return;
-        }
-        if (usersTab == null) {
-            usersTab = new Tab("Utenti");
-            usersTab.setClosable(true); // chiudibile
-        }
-        if (!tabPane.getTabs().contains(usersTab)) tabPane.getTabs().add(usersTab);
-        if (usersRoot == null) {
-            buildUsersView();
-            usersTab.setContent(usersRoot);
-        }
+        if (!tabPane.getTabs().contains(catalogTab)) tabPane.getTabs().add(catalogTab);
     }
 
     private void buildCatalogView() {
         catalogRoot = new BorderPane();
         catalogRoot.setPadding(new Insets(10));
 
-        // Creiamo i pulsanti solo se NON siamo in ruolo UTENTE
-        Button btnAdd = null;
-        Button btnEdit = null;
-        Button btnRemove = null;
-
-        if (!SessionContext.isUtente()) {
-            btnAdd = new Button("Aggiungi Libro");
-            btnEdit = new Button("Modifica Libro");
-            btnRemove = new Button("Rimuovi Libro");
-        }
-
+        btnAddBook = new Button("Aggiungi Libro");
+        btnEditBook = new Button("Modifica Libro");
+        btnRemoveBook = new Button("Rimuovi Libro");
         txtSearchCatalog = new TextField();
         txtSearchCatalog.setPromptText("Cerca nel catalogo...");
-        HBox toolbar = new HBox(10);
+        HBox toolbar = new HBox(10, btnAddBook, btnEditBook, btnRemoveBook, new Label("Ricerca:"), txtSearchCatalog);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
         toolbar.getStyleClass().add("toolbar");
-
-        // Aggiungi i controlli nella toolbar in modo dinamico
-        List<javafx.scene.Node> toolbarNodes = new ArrayList<>();
-        if (btnAdd != null) toolbarNodes.add(btnAdd);
-        if (btnEdit != null) toolbarNodes.add(btnEdit);
-        if (btnRemove != null) toolbarNodes.add(btnRemove);
-        toolbarNodes.add(new Label("Ricerca:"));
-        toolbarNodes.add(txtSearchCatalog);
-        toolbar.getChildren().addAll(toolbarNodes);
 
         catalogTable = new TableView<>();
         catalogTable.setPlaceholder(new Label("Nessun libro da mostrare"));
 
-        if (catalogData == null) {
-            catalogData = FXCollections.observableArrayList();
-        }
         catalogFiltered = new FilteredList<>(catalogData, b -> true);
         catalogSorted = new SortedList<>(catalogFiltered);
         catalogSorted.comparatorProperty().bind(catalogTable.comparatorProperty());
@@ -494,10 +401,38 @@ public class ContentManager {
         dataCol.setCellValueFactory(new PropertyValueFactory<>("dataPubblicazione"));
         TableColumn<Book, String> editoreCol = new TableColumn<>("Casa Editrice");
         editoreCol.setCellValueFactory(new PropertyValueFactory<>("casaEditrice"));
-        TableColumn<Book, Integer> copieCol = new TableColumn<>("Copie");
-        copieCol.setCellValueFactory(new PropertyValueFactory<>("copie"));
 
-        catalogTable.getColumns().addAll(isbnCol, titoloCol, autoreCol, dataCol, editoreCol, copieCol);
+// Colonna copie totali (solo per bibliotecario)
+        TableColumn<Book, Integer> copieTotCol = new TableColumn<>("Copie totali");
+        copieTotCol.setCellValueFactory(new PropertyValueFactory<>("copie"));
+
+// Colonna copie disponibili (sempre visibile)
+        TableColumn<Book, Integer> copieDispCol = new TableColumn<>("Copie disponibili");
+        copieDispCol.setCellValueFactory(cell -> {
+            Book b = cell.getValue();
+            int copies = (b != null) ? b.getCopie() : 0;
+            long active = 0L;
+            try {
+                List<Prestito> attivi = prestitoController.trovaPrestitiAttivi();
+                if (b != null && b.getId() != null) {
+                    active = attivi.stream()
+                            .filter(p -> p.getLibroId() != null && b.getId().equals(p.getLibroId()))
+                            .count();
+                }
+            } catch (Exception ex) {
+                System.err.println("Warning: impossibile calcolare prestiti attivi: " + ex.getMessage());
+            }
+            int avail = (int) Math.max(0, copies - active);
+            return new ReadOnlyObjectWrapper<>(avail);
+        });
+
+// Aggiunta colonne in base al ruolo
+        if (SessionContext.isBibliotecario()) {
+            catalogTable.getColumns().addAll(isbnCol, titoloCol, autoreCol, dataCol, editoreCol, copieTotCol, copieDispCol);
+        } else {
+            catalogTable.getColumns().addAll(isbnCol, titoloCol, autoreCol, dataCol, editoreCol, copieDispCol);
+        }
+
         catalogTable.setItems(catalogSorted);
 
         txtSearchCatalog.textProperty().addListener((obs, o, val) -> {
@@ -505,43 +440,91 @@ public class ContentManager {
             catalogFiltered.setPredicate(makeBookPredicate(q));
         });
 
-        // Event handlers solo se i pulsanti esistono (ruolo: Bibliotecario)
-        if (btnAdd != null) {
-            btnAdd.setOnAction(e -> {
-                AddBookDialog dialog = new AddBookDialog();
-                dialog.showAndWait().ifPresent(bean -> {
-                    boolean ok = bookController.aggiungiLibro(bean);
-                    if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiunto."); }
-                    else showError("Impossibile aggiungere il libro.");
-                });
+        btnAddBook.setOnAction(e -> {
+            if (!SessionContext.isBibliotecario()) { showError("Operazione consentita solo al Bibliotecario."); return; }
+            AddBookDialog dialog = new AddBookDialog();
+            dialog.showAndWait().ifPresent(bean -> {
+                boolean ok = bookController.aggiungiLibro(bean);
+                if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiunto."); }
+                else showError("Impossibile aggiungere il libro.");
             });
-        }
+        });
 
-        if (btnEdit != null) {
-            btnEdit.setOnAction(e -> {
-                Book selected = catalogTable.getSelectionModel().getSelectedItem();
-                if (selected == null) { showError("Seleziona un libro da modificare."); return; }
-                EditBookDialog dialog = new EditBookDialog(selected);
-                dialog.showAndWait().ifPresent(bean -> {
-                    boolean ok = bookController.aggiornaLibro(bean);
-                    if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiornato."); }
-                    else showError("Impossibile aggiornare il libro.");
-                });
+        btnEditBook.setOnAction(e -> {
+            if (!SessionContext.isBibliotecario()) { showError("Operazione consentita solo al Bibliotecario."); return; }
+            Book selected = catalogTable.getSelectionModel().getSelectedItem();
+            if (selected == null) { showError("Seleziona un libro da modificare."); return; }
+            EditBookDialog dialog = new EditBookDialog(selected);
+            dialog.showAndWait().ifPresent(bean -> {
+                boolean ok = bookController.aggiornaLibro(bean);
+                if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiornato."); }
+                else showError("Impossibile aggiornare il libro.");
             });
-        }
+        });
 
-        if (btnRemove != null) {
-            btnRemove.setOnAction(e -> {
-                Book selected = catalogTable.getSelectionModel().getSelectedItem();
-                if (selected == null) { showError("Seleziona un libro da rimuovere."); return; }
-                boolean ok = bookController.rimuoviLibro(selected.getId());
-                if (ok) { aggiornaCatalogoLibri(); showInfo("Libro rimosso dal database."); }
-                else showError("Impossibile rimuovere il libro. Verifica che non abbia prestiti attivi.");
-            });
-        }
+        btnRemoveBook.setOnAction(e -> {
+            if (!SessionContext.isBibliotecario()) { showError("Operazione consentita solo al Bibliotecario."); return; }
+            Book selected = catalogTable.getSelectionModel().getSelectedItem();
+            if (selected == null) { showError("Seleziona un libro da rimuovere."); return; }
+            boolean ok = bookController.rimuoviLibro(selected.getId());
+            if (ok) { aggiornaCatalogoLibri(); showInfo("Libro rimosso dal database."); }
+            else showError("Impossibile rimuovere il libro. Verifica che non abbia prestiti attivi o prenotazioni.");
+        });
 
         catalogRoot.setTop(toolbar);
         catalogRoot.setCenter(catalogTable);
+
+        // Applica restrizioni su pulsanti in base al ruolo attuale
+        applyCatalogPermissions();
+    }
+
+    private Predicate<Book> makeBookPredicate(String q) {
+        if (q == null || q.isBlank()) return b -> true;
+        return b -> {
+            String s = q.toLowerCase();
+            return (b.getIsbn() != null && b.getIsbn().toLowerCase().contains(s)) ||
+                    (b.getTitolo() != null && b.getTitolo().toLowerCase().contains(s)) ||
+                    (b.getAutore() != null && b.getAutore().toLowerCase().contains(s)) ||
+                    (b.getCasaEditrice() != null && b.getCasaEditrice().toLowerCase().contains(s)) ||
+                    (b.getDataPubblicazione() != null && b.getDataPubblicazione().toString().contains(s)) ||
+                    String.valueOf(b.getCopie()).contains(s);
+        };
+    }
+
+    private void applyCatalogPermissions() {
+        boolean isBibliotecario = SessionContext.isBibliotecario();
+        if (btnAddBook != null) btnAddBook.setDisable(!isBibliotecario);
+        if (btnEditBook != null) btnEditBook.setDisable(!isBibliotecario);
+        if (btnRemoveBook != null) btnRemoveBook.setDisable(!isBibliotecario);
+    }
+
+    private void aggiornaCatalogoLibri() {
+        try {
+            List<Book> libri = bookController.trovaTutti();
+            if (catalogData == null) catalogData = FXCollections.observableArrayList();
+            catalogData.setAll(libri);
+        } catch (Exception e) {
+            showError("Errore nell'aggiornamento del catalogo: " + e.getMessage());
+        }
+    }
+
+    // -------------------------
+    // Manage Loans Tab (Prestiti) - per Bibliotecario
+    // -------------------------
+    public void mostraPrestiti() {
+        ensureLoansTab();
+        tabPane.getSelectionModel().select(loansTab);
+        aggiornaPrestiti();
+    }
+
+    private void ensureLoansTab() {
+        if (loansTab == null) {
+            loansTab = new Tab("Prestiti");
+            loansTab.setClosable(true);
+            buildLoansView();
+            loansTab.setContent(loansRoot);
+        }
+        if (!tabPane.getTabs().contains(loansTab)) tabPane.getTabs().add(loansTab);
     }
 
     private void buildLoansView() {
@@ -566,9 +549,6 @@ public class ContentManager {
         loansTable = new TableView<>();
         loansTable.setPlaceholder(new Label("Nessun prestito da mostrare"));
 
-        if (loansData == null) {
-            loansData = FXCollections.observableArrayList();
-        }
         loansFiltered = new FilteredList<>(loansData, p -> true);
         loansSorted = new SortedList<>(loansFiltered);
         loansSorted.comparatorProperty().bind(loansTable.comparatorProperty());
@@ -591,6 +571,9 @@ public class ContentManager {
         txtSearchLoans.textProperty().addListener((obs, o, v) -> applyLoansPredicate());
 
         btnAddLoan.setOnAction(e -> {
+            // Solo bibliotecario può registrare prestiti
+            if (!SessionContext.isBibliotecario()) { showError("Operazione consentita solo al Bibliotecario."); return; }
+
             List<Book> tutti = bookController.trovaTutti();
             Map<Long, Long> attiviPerLibro = prestitoController.trovaPrestitiAttivi().stream()
                     .filter(p -> p.getLibroId() != null)
@@ -620,7 +603,7 @@ public class ContentManager {
                                 tabPane.getSelectionModel().select(loansTab);
                             }
                             case UTENTE_INATTIVO -> showError("Impossibile registrare il prestito: utente non attivo.");
-                            case ERRORE_INSERIMENTO -> showError("Impossibile registrare il prestito. Verifica che il database sia allineato e i riferimenti validi.");
+                            case ERRORE_INSERIMENTO -> showError("Impossibile registrare il prestito. Verifica il DB.");
                         }
                     });
                 });
@@ -628,6 +611,7 @@ public class ContentManager {
         });
 
         btnReturn.setOnAction(e -> {
+            if (!SessionContext.isBibliotecario()) { showError("Operazione consentita solo al Bibliotecario."); return; }
             Prestito sel = loansTable.getSelectionModel().getSelectedItem();
             if (sel == null) { showError("Seleziona un prestito da chiudere."); return; }
             boolean ok = prestitoController.registraRestituzione(sel.getId(), LocalDate.now());
@@ -639,6 +623,165 @@ public class ContentManager {
 
         loansRoot.setTop(toolbar);
         loansRoot.setCenter(loansTable);
+
+        // Se non è bibliotecario, disabilitiamo il tab alla creazione
+        if (!SessionContext.isBibliotecario()) {
+            loansTab.setDisable(true);
+        }
+    }
+
+    private void applyLoansPredicate() {
+        if (loansFiltered == null) return;
+        String filter = cmbLoanFilter != null ? cmbLoanFilter.getSelectionModel().getSelectedItem() : "Tutti";
+        String q = (txtSearchLoans != null && txtSearchLoans.getText() != null) ? txtSearchLoans.getText().trim().toLowerCase() : "";
+
+        loansFiltered.setPredicate(p -> {
+            boolean isActive = p.getDataRestituzione() == null;
+            boolean passFilter = "Tutti".equals(filter) ||
+                    ("Attivi".equals(filter) && isActive) ||
+                    ("Non attivi".equals(filter) && !isActive);
+            if (!passFilter) return false;
+
+            if (q.isBlank()) return true;
+
+            String idStr = p.getId() != null ? String.valueOf(p.getId()) : "";
+            String libro = p.getLibroTitoloSnapshot() != null ? p.getLibroTitoloSnapshot().toLowerCase() : "";
+            String utente = p.getUtente() != null ? p.getUtente().toLowerCase() : "";
+            String dp = p.getDataPrestito() != null ? p.getDataPrestito().toString() : "";
+            String dr = p.getDataRestituzione() != null ? p.getDataRestituzione().toString() : "";
+
+            return idStr.contains(q) || libro.contains(q) || utente.contains(q) || dp.contains(q) || dr.contains(q);
+        });
+    }
+
+    private void aggiornaPrestiti() {
+        try {
+            List<Prestito> prestiti = prestitoController.trovaTutti();
+            if (loansData == null) loansData = FXCollections.observableArrayList();
+            loansData.setAll(prestiti);
+            applyLoansPredicate();
+        } catch (Exception e) {
+            showError("Errore nell'aggiornamento dei prestiti: " + e.getMessage());
+        }
+    }
+
+    // -------------------------
+    // My Loans (I miei prestiti) - per Utente (solo lettura)
+    // -------------------------
+    public void mostraMieiPrestiti() {
+        ensureMyLoansTab();
+        tabPane.getSelectionModel().select(myLoansTab);
+        aggiornaMyPrestiti();
+    }
+
+    private void ensureMyLoansTab() {
+        if (myLoansTab == null) {
+            myLoansTab = new Tab("I miei prestiti");
+            myLoansTab.setClosable(true);
+            buildMyLoansView();
+            myLoansTab.setContent(myLoansRoot);
+        }
+        if (!tabPane.getTabs().contains(myLoansTab)) tabPane.getTabs().add(myLoansTab);
+    }
+
+    private void buildMyLoansView() {
+        myLoansRoot = new BorderPane();
+        myLoansRoot.setPadding(new Insets(10));
+
+        Button btnRefresh = new Button("Aggiorna");
+        cmbMyLoansFilter = new ComboBox<>();
+        cmbMyLoansFilter.getItems().addAll("Tutti", "Attivi", "Storico");
+        cmbMyLoansFilter.getSelectionModel().select("Tutti");
+        txtSearchMyLoans = new TextField();
+        txtSearchMyLoans.setPromptText("Cerca nei miei prestiti...");
+
+        HBox toolbar = new HBox(10, btnRefresh, new Label("Filtro:"), cmbMyLoansFilter, new Label("Ricerca:"), txtSearchMyLoans);
+        toolbar.setPadding(new Insets(0, 0, 10, 0));
+        toolbar.getStyleClass().add("toolbar");
+
+        myLoansTable = new TableView<>();
+        myLoansTable.setPlaceholder(new Label("Nessun prestito per il tuo account"));
+
+        myLoansFiltered = new FilteredList<>(myLoansData, p -> true);
+        myLoansSorted = new SortedList<>(myLoansFiltered);
+        myLoansSorted.comparatorProperty().bind(myLoansTable.comparatorProperty());
+        myLoansTable.setItems(myLoansSorted);
+
+        TableColumn<Prestito, Long> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
+        TableColumn<Prestito, String> libroCol = new TableColumn<>("Libro");
+        libroCol.setCellValueFactory(new PropertyValueFactory<>("libroTitoloSnapshot"));
+        TableColumn<Prestito, LocalDate> dataPrestitoCol = new TableColumn<>("Data Prestito");
+        dataPrestitoCol.setCellValueFactory(new PropertyValueFactory<>("dataPrestito"));
+        TableColumn<Prestito, LocalDate> dataRestituzioneCol = new TableColumn<>("Data Restituzione");
+        dataRestituzioneCol.setCellValueFactory(new PropertyValueFactory<>("dataRestituzione"));
+
+        myLoansTable.getColumns().addAll(idCol, libroCol, dataPrestitoCol, dataRestituzioneCol);
+
+        cmbMyLoansFilter.valueProperty().addListener((obs, o, v) -> applyMyLoansPredicate());
+        txtSearchMyLoans.textProperty().addListener((obs, o, v) -> applyMyLoansPredicate());
+
+        btnRefresh.setOnAction(e -> aggiornaMyPrestiti());
+
+        myLoansRoot.setTop(toolbar);
+        myLoansRoot.setCenter(myLoansTable);
+    }
+
+    private void applyMyLoansPredicate() {
+        if (myLoansFiltered == null) return;
+        String filter = cmbMyLoansFilter != null ? cmbMyLoansFilter.getSelectionModel().getSelectedItem() : "Tutti";
+        String q = (txtSearchMyLoans != null && txtSearchMyLoans.getText() != null) ? txtSearchMyLoans.getText().trim().toLowerCase() : "";
+
+        myLoansFiltered.setPredicate(p -> {
+            boolean isActive = p.getDataRestituzione() == null;
+            boolean passFilter = "Tutti".equals(filter) ||
+                    ("Attivi".equals(filter) && isActive) ||
+                    ("Storico".equals(filter) && !isActive);
+            if (!passFilter) return false;
+
+            if (q.isBlank()) return true;
+
+            String idStr = p.getId() != null ? String.valueOf(p.getId()) : "";
+            String libro = p.getLibroTitoloSnapshot() != null ? p.getLibroTitoloSnapshot().toLowerCase() : "";
+            String dp = p.getDataPrestito() != null ? p.getDataPrestito().toString() : "";
+            String dr = p.getDataRestituzione() != null ? p.getDataRestituzione().toString() : "";
+
+            return idStr.contains(q) || libro.contains(q) || dp.contains(q) || dr.contains(q);
+        });
+    }
+
+    private void aggiornaMyPrestiti() {
+        try {
+            Long sessionUtenteId = SessionContext.getUserId(); // ASSUNZIONE: è l'id della riga in 'utenti' (prestiti.utente_id)
+            List<Prestito> all = prestitoController.trovaTutti();
+            List<Prestito> mine = all.stream()
+                    .filter(p -> p.getUtenteId() != null && sessionUtenteId != null && sessionUtenteId.equals(p.getUtenteId()))
+                    .collect(Collectors.toList());
+            if (myLoansData == null) myLoansData = FXCollections.observableArrayList();
+            myLoansData.setAll(mine);
+            applyMyLoansPredicate();
+        } catch (Exception e) {
+            showError("Errore nell'aggiornamento dei tuoi prestiti: " + e.getMessage());
+        }
+    }
+
+    // -------------------------
+    // Manage Users Tab
+    // -------------------------
+    public void mostraUtenti() {
+        ensureUsersTab();
+        tabPane.getSelectionModel().select(usersTab);
+        aggiornaUtenti();
+    }
+
+    private void ensureUsersTab() {
+        if (usersTab == null) {
+            usersTab = new Tab("Utenti");
+            usersTab.setClosable(true);
+            buildUsersView();
+            usersTab.setContent(usersRoot);
+        }
+        if (!tabPane.getTabs().contains(usersTab)) tabPane.getTabs().add(usersTab);
     }
 
     private void buildUsersView() {
@@ -648,23 +791,27 @@ public class ContentManager {
         Button btnAdd = new Button("Nuovo");
         Button btnEdit = new Button("Modifica");
         Button btnDelete = new Button("Elimina");
+        Button btnCreds = new Button("Crea/Modifica credenziali");
         txtSearchUsers = new TextField();
         txtSearchUsers.setPromptText("Cerca utenti...");
         cmbUserFilter = new ComboBox<>();
         cmbUserFilter.getItems().addAll("Tutti", "Attivi", "Inattivi");
         cmbUserFilter.getSelectionModel().select("Tutti");
 
-        HBox toolbar = new HBox(10, btnAdd, btnEdit, btnDelete, new Label("Filtro:"), cmbUserFilter, new Label("Ricerca:"), txtSearchUsers);
+        // toolbar: per Admin mostro solo il pulsante credenziali;
+        // per Bibliotecario mostro Nuovo/Modifica/Elimina + filtro;
+        HBox toolbar;
+        if (SessionContext.isAdmin()) {
+            toolbar = new HBox(10, btnCreds, new Label("Filtro:"), cmbUserFilter, new Label("Ricerca:"), txtSearchUsers);
+        } else {
+            toolbar = new HBox(10, btnAdd, btnEdit, btnDelete, new Label("Filtro:"), cmbUserFilter, new Label("Ricerca:"), txtSearchUsers);
+        }
         toolbar.setPadding(new Insets(0, 0, 10, 0));
         toolbar.getStyleClass().add("toolbar");
         usersRoot.setTop(toolbar);
 
         usersTable = new TableView<>();
         usersTable.setPlaceholder(new Label("Nessun utente"));
-
-        if (usersData == null) {
-            usersData = FXCollections.observableArrayList();
-        }
 
         TableColumn<Utente, Integer> tesseraCol = new TableColumn<>("Tessera");
         tesseraCol.setCellValueFactory(new PropertyValueFactory<>("tessera"));
@@ -681,9 +828,22 @@ public class ContentManager {
         TableColumn<Utente, LocalDate> scadCol = new TableColumn<>("Scadenza");
         scadCol.setCellValueFactory(new PropertyValueFactory<>("dataScadenza"));
         TableColumn<Utente, String> statoCol = new TableColumn<>("Stato");
-        statoCol.setCellValueFactory(new PropertyValueFactory<>("stato"));
+        statoCol.setCellValueFactory(cell -> {
+            Utente u = cell.getValue();
+            String s = (u == null) ? "" : (u.getDataScadenza() != null && u.getDataScadenza().isBefore(LocalDate.now()) ? "Inattivo" : "Attivo");
+            return new ReadOnlyStringWrapper(s);
+        });
 
         usersTable.getColumns().addAll(tesseraCol, nomeCol, cognomeCol, emailCol, telCol, attCol, scadCol, statoCol);
+
+        // Se Admin, mostra anche colonne relative alle credenziali (username e, se disponibile, password_plain)
+        if (SessionContext.isAdmin()) {
+            TableColumn<Utente, String> usernameCol = new TableColumn<>("Username");
+            usernameCol.setCellValueFactory(new PropertyValueFactory<>("username"));
+            TableColumn<Utente, String> passwordCol = new TableColumn<>("Password");
+            passwordCol.setCellValueFactory(new PropertyValueFactory<>("password")); // dipende da DAO per popolare
+            usersTable.getColumns().addAll(usernameCol, passwordCol);
+        }
 
         usersFiltered = new FilteredList<>(usersData, u -> true);
         usersSorted = new SortedList<>(usersFiltered);
@@ -694,6 +854,8 @@ public class ContentManager {
         cmbUserFilter.valueProperty().addListener((obs, o, v) -> applyUsersPredicate());
 
         btnAdd.setOnAction(e -> {
+            // Solo Bibliotecario può aggiungere utenti (l'Admin poi crea credenziali)
+            if (!SessionContext.isBibliotecario()) { showError("Solo il Bibliotecario può creare utenti."); return; }
             AddEditUserDialog dlg = new AddEditUserDialog(utenteController, null);
             dlg.showAndWait().ifPresent(bean -> {
                 if (utenteController.aggiungi(bean)) {
@@ -708,10 +870,11 @@ public class ContentManager {
         btnEdit.setOnAction(e -> {
             Utente sel = usersTable.getSelectionModel().getSelectedItem();
             if (sel == null) { showError("Seleziona un utente da modificare."); return; }
+            if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("Non autorizzato."); return; }
             AddEditUserDialog dlg = new AddEditUserDialog(utenteController, sel);
             dlg.showAndWait().ifPresent(bean -> {
                 bean.setId(sel.getId());
-                if (utenteController.aggiorna(bean)) { // attenzione: qui era 'aggiorna' nel progetto; adattalo se diverso
+                if (utenteController.aggiorna(bean)) {
                     aggiornaUtenti();
                     showInfo("Utente aggiornato.");
                 } else {
@@ -723,6 +886,7 @@ public class ContentManager {
         btnDelete.setOnAction(e -> {
             Utente sel = usersTable.getSelectionModel().getSelectedItem();
             if (sel == null) { showError("Seleziona un utente da eliminare."); return; }
+            if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("Non autorizzato."); return; }
             if (utenteController.elimina(sel.getId())) {
                 aggiornaUtenti();
                 showInfo("Utente eliminato.");
@@ -731,25 +895,54 @@ public class ContentManager {
             }
         });
 
+        // Bottone importante per Admin: crea/modifica credenziali
+        btnCreds.setOnAction(e -> {
+            if (!SessionContext.isAdmin()) { showError("Accesso consentito solo all'Admin."); return; }
+            Utente sel = usersTable.getSelectionModel().getSelectedItem();
+            if (sel == null) { showError("Seleziona un utente per cui creare/modificare le credenziali."); return; }
+
+            String existingUser = sel.getUsername();
+            String existingPass = sel.getPassword(); // può essere null se non memorizzata in chiaro
+
+            CredentialsDialog cd = new CredentialsDialog(sel.getId(), existingUser, existingPass);
+            cd.showAndWait().ifPresent(pair -> {
+                String username = pair.getKey();
+                String password = pair.getValue();
+                boolean ok;
+                try {
+                    if (existingUser == null || existingUser.isBlank()) {
+                        ok = utenteController.creaCredenziali(sel.getId(), username, password);
+                    } else {
+                        ok = utenteController.aggiornaCredenziali(sel.getId(), username, password);
+                    }
+                } catch (Exception ex) {
+                    showError("Errore durante la creazione/aggiornamento credenziali: " + ex.getMessage());
+                    return;
+                }
+                if (ok) {
+                    aggiornaUtenti();
+                    showInfo("Credenziali memorizzate.");
+                } else {
+                    showError("Operazione fallita (username duplicato o errore DB).");
+                }
+            });
+        });
+
         usersRoot.setCenter(usersTable);
     }
 
-    private Predicate<Book> makeBookPredicate(String q) {
-        if (q == null || q.isBlank()) return b -> true;
-        return b -> {
-            String s = q.toLowerCase();
-            return (b.getIsbn() != null && b.getIsbn().toLowerCase().contains(s)) ||
-                    (b.getTitolo() != null && b.getTitolo().toLowerCase().contains(s)) ||
-                    (b.getAutore() != null && b.getAutore().toLowerCase().contains(s)) ||
-                    (b.getCasaEditrice() != null && b.getCasaEditrice().toLowerCase().contains(s)) ||
-                    (b.getDataPubblicazione() != null && b.getDataPubblicazione().toString().contains(s)) ||
-                    String.valueOf(b.getCopie()).contains(s);
-        };
+    private void applyUsersPredicate() {
+        if (usersFiltered == null) return;
+        String stato = (cmbUserFilter != null && cmbUserFilter.getSelectionModel().getSelectedItem() != null)
+                ? cmbUserFilter.getSelectionModel().getSelectedItem() : "Tutti";
+        String q = (txtSearchUsers != null && txtSearchUsers.getText() != null)
+                ? txtSearchUsers.getText().trim().toLowerCase() : "";
+        usersFiltered.setPredicate(makeUserPredicate(q, stato));
     }
 
     private java.util.function.Predicate<Utente> makeUserPredicate(String q, String statoFilter) {
         return u -> {
-            boolean attivo = u.isAttivo();
+            boolean attivo = u.getDataScadenza() == null || !u.getDataScadenza().isBefore(LocalDate.now());
             boolean statoOk = "Tutti".equals(statoFilter) ||
                     ("Attivi".equals(statoFilter) && attivo) ||
                     ("Inattivi".equals(statoFilter) && !attivo);
@@ -764,7 +957,7 @@ public class ContentManager {
             String tel = u.getTelefono() != null ? u.getTelefono().toLowerCase() : "";
             String att = u.getDataAttivazione() != null ? u.getDataAttivazione().toString() : "";
             String scad = u.getDataScadenza() != null ? u.getDataScadenza().toString() : "";
-            String stato = u.getStato().toLowerCase();
+            String stato = (u.getDataScadenza() != null && u.getDataScadenza().isBefore(LocalDate.now())) ? "inattivo" : "attivo";
 
             return tessera.contains(s) || nome.contains(s) || cognome.contains(s) ||
                     email.contains(s) || tel.contains(s) || att.contains(s) || scad.contains(s) ||
@@ -772,92 +965,175 @@ public class ContentManager {
         };
     }
 
-    private void applyLoansPredicate() {
-        if (loansFiltered == null) return;
-        String filter = cmbLoanFilter != null ? cmbLoanFilter.getSelectionModel().getSelectedItem() : "Tutti";
-        String q = (txtSearchLoans != null && txtSearchLoans.getText() != null) ? txtSearchLoans.getText().trim().toLowerCase() : "";
-
-        loansFiltered.setPredicate(p -> {
-            boolean isActive = p.getDataRestituzione() == null;
-            boolean passFilter =
-                    "Tutti".equals(filter) ||
-                            ("Attivi".equals(filter) && isActive) ||
-                            ("Non attivi".equals(filter) && !isActive);
-            if (!passFilter) return false;
-
-            if (q.isBlank()) return true;
-
-            String idStr = p.getId() != null ? String.valueOf(p.getId()) : "";
-            String libro = p.getLibroTitoloSnapshot() != null ? p.getLibroTitoloSnapshot().toLowerCase() : "";
-            String utente = p.getUtente() != null ? p.getUtente().toLowerCase() : "";
-            String dp = p.getDataPrestito() != null ? p.getDataPrestito().toString() : "";
-            String dr = p.getDataRestituzione() != null ? p.getDataRestituzione().toString() : "";
-
-            return idStr.contains(q) || libro.contains(q) || utente.contains(q) || dp.contains(q) || dr.contains(q);
-        });
-    }
-
-    private void applyUsersPredicate() {
-        if (usersFiltered == null) return;
-        String stato = (cmbUserFilter != null && cmbUserFilter.getSelectionModel().getSelectedItem() != null)
-                ? cmbUserFilter.getSelectionModel().getSelectedItem() : "Tutti";
-        String q = (txtSearchUsers != null && txtSearchUsers.getText() != null)
-                ? txtSearchUsers.getText().trim().toLowerCase() : "";
-        usersFiltered.setPredicate(makeUserPredicate(q, stato));
-    }
-
-    private void aggiornaCatalogoLibri() {
-        try {
-            List<Book> libri = bookController.trovaTutti();
-            if (catalogData == null) {
-                catalogData = FXCollections.observableArrayList();
-            }
-            catalogData.setAll(libri);
-        } catch (Exception e) {
-            e.printStackTrace();
-            showError("Errore nell'aggiornamento del catalogo: " + e.getMessage());
-        }
-    }
-
-    private void aggiornaPrestiti() {
-        try {
-            List<Prestito> prestiti = prestitoController.trovaTutti();
-            if (loansData == null) {
-                loansData = FXCollections.observableArrayList();
-            }
-            loansData.setAll(prestiti);
-            applyLoansPredicate();
-        } catch (Exception e) {
-            e.printStackTrace();
-            showError("Errore nell'aggiornamento dei prestiti: " + e.getMessage());
-        }
-    }
-
     private void aggiornaUtenti() {
         try {
             List<Utente> utenti = utenteController.trovaTutti();
-            if (usersData == null) {
-                usersData = FXCollections.observableArrayList();
-            }
+            if (usersData == null) usersData = FXCollections.observableArrayList();
             usersData.setAll(utenti);
             applyUsersPredicate();
         } catch (Exception e) {
-            e.printStackTrace();
             showError("Errore nell'aggiornamento degli utenti: " + e.getMessage());
         }
     }
 
+    // -------------------------
+    // Profilo Utente
+    // -------------------------
+    public void mostraProfiloUtente() {
+        if (!SessionContext.isUtente()) {
+            showError("Profilo disponibile solo per utenti autenticati.");
+            return;
+        }
+        if (profileTab == null) {
+            profileTab = new Tab("Profilo");
+            profileTab.setClosable(true);
+            BorderPane profileRoot = new BorderPane();
+            profileRoot.setPadding(new Insets(10));
+            profileTab.setContent(profileRoot);
+        }
+        if (!tabPane.getTabs().contains(profileTab)) tabPane.getTabs().add(profileTab);
+
+        // Carica ed inserisci i dati del profilo
+        BorderPane p = (BorderPane) profileTab.getContent();
+        Integer tess = SessionContext.getTessera();
+        Utente ut = null;
+        if (tess != null) {
+            List<Utente> all = utenteController.trovaTutti();
+            for (Utente u : all) {
+                if (u.getTessera() != null && u.getTessera().equals(tess)) { ut = u; break; }
+            }
+        }
+        VBox infoBox = new VBox(8);
+        infoBox.setPadding(new Insets(10));
+        if (ut != null) {
+            infoBox.getChildren().addAll(
+                    new Label("Nome: " + safe(ut.getNome())),
+                    new Label("Cognome: " + safe(ut.getCognome())),
+                    new Label("Tessera: " + (ut.getTessera() != null ? ut.getTessera() : "")),
+                    new Label("Data attivazione: " + (ut.getDataAttivazione() != null ? ut.getDataAttivazione() : "")),
+                    new Label("Data scadenza: " + (ut.getDataScadenza() != null ? ut.getDataScadenza() : "")),
+                    new Label("Email: " + safe(ut.getEmail())),
+                    new Label("Telefono: " + safe(ut.getTelefono()))
+            );
+        } else {
+            infoBox.getChildren().add(new Label("Profilo non disponibile."));
+        }
+        p.setCenter(infoBox);
+        tabPane.getSelectionModel().select(profileTab);
+    }
+
+    private String safe(String s) { return s != null ? s : ""; }
+
+    // -------------------------
+    // UI Helpers
+    // -------------------------
     private void showInfo(String msg) {
         Alert a = new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK);
-        a.setHeaderText(null);
-        a.setTitle("Informazione");
-        a.showAndWait();
+        a.setHeaderText(null); a.setTitle("Informazione"); a.showAndWait();
     }
 
     private void showError(String msg) {
         Alert a = new Alert(Alert.AlertType.ERROR, msg, ButtonType.OK);
-        a.setHeaderText(null);
-        a.setTitle("Errore");
-        a.showAndWait();
+        a.setHeaderText(null); a.setTitle("Errore"); a.showAndWait();
+    }
+
+    // -------------------------
+    // Central method to update UI for role changes
+    // -------------------------
+    private void updateUIForRole() {
+        // ricostruisci sidebar
+        if (rootContainer != null) {
+            rootContainer.setLeft(buildLeftSidebar());
+        }
+        // aggiorna Home description
+        updateHomeDescription();
+
+        // gestione tabs: rimuove quelle non permesse e ne assicura la creazione per quelle permesse
+        if (tabPane == null) tabPane = new TabPane();
+        // tieni home
+        Tab currentHome = homeTab;
+        tabPane.getTabs().clear();
+        if (currentHome == null) {
+            homeTab = new Tab("Home", buildHomeView());
+            homeTab.setClosable(false);
+            tabPane.getTabs().add(homeTab);
+        } else {
+            tabPane.getTabs().add(currentHome);
+        }
+
+        if (SessionContext.isBibliotecario()) {
+            ensureCatalogTab();
+            ensureLoansTab();
+            ensureUsersTab();
+        } else if (SessionContext.isAdmin()) {
+            ensureUsersTab();
+            // Admin non vede catalogo e prestiti
+        } else if (SessionContext.isUtente()) {
+            ensureCatalogTab();
+            ensureMyLoansTab();
+            // create profile tab on-demand
+            // disabilita pulsanti di modifica catalogo
+            applyCatalogPermissions();
+        }
+
+        // ricarica dati
+        aggiornaCatalogoLibri();
+        aggiornaPrestiti();
+        aggiornaUtenti();
+        aggiornaMyPrestiti();
+    }
+
+    /**
+     * Applica il tema corrente (currentTheme) alla root/scene.
+     * Può essere chiamato in qualsiasi momento dopo che rootContainer è stato impostato.
+     */
+    private void applyTheme() {
+        if (rootContainer == null) return;
+
+        // rimuovi classi precedenti
+        rootContainer.getStyleClass().removeAll(THEME_COLORI_CLASS, THEME_BW_CLASS);
+        String themeClass = (currentTheme == Theme.BIANCO_NERO) ? THEME_BW_CLASS : THEME_COLORI_CLASS;
+        if (!rootContainer.getStyleClass().contains(themeClass)) {
+            rootContainer.getStyleClass().add(themeClass);
+        }
+
+        // gestisci stylesheets della Scene (se presente)
+        Scene scene = rootContainer.getScene();
+        if (scene != null) {
+            // rimuovi eventuali references precedenti
+            scene.getStylesheets().removeIf(s -> s.endsWith("theme-color.css") || s.endsWith("theme-bw.css"));
+
+            String cssPath = (currentTheme == Theme.BIANCO_NERO) ? THEME_BW_CSS : THEME_COLORI_CSS;
+            URL url = getClass().getResource(cssPath);
+            if (url != null) {
+                String external = url.toExternalForm();
+                if (!scene.getStylesheets().contains(external)) {
+                    scene.getStylesheets().add(external);
+                }
+            } else {
+                // fallback inline minimale se CSS non trovato
+                if (currentTheme == Theme.BIANCO_NERO) {
+                    rootContainer.setStyle("-fx-accent: #000000; -fx-focus-color: #000000; -fx-base: #f2f2f2;");
+                } else {
+                    rootContainer.setStyle("-fx-accent: #3f51b5; -fx-focus-color: #3f51b5; -fx-base: #f6f7fb;");
+                }
+            }
+        } else {
+            // se scene non è ancora disponibile, applica il CSS alla root stessa
+            String cssPath = (currentTheme == Theme.BIANCO_NERO) ? THEME_BW_CSS : THEME_COLORI_CSS;
+            URL url = getClass().getResource(cssPath);
+            if (url != null) {
+                String external = url.toExternalForm();
+                if (!rootContainer.getStylesheets().contains(external)) {
+                    rootContainer.getStylesheets().add(external);
+                }
+            }
+        }
+    }
+
+    public void mostraHome() {
+        if (tabPane != null && homeTab != null) {
+            tabPane.getSelectionModel().select(homeTab);
+        }
     }
 }

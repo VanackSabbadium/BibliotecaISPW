@@ -1,54 +1,75 @@
 package it.biblioteca.ui;
 
-import it.biblioteca.config.DatabaseConfig;
 import it.biblioteca.controller.BookController;
+import it.biblioteca.controller.PrenotazioneController;
 import it.biblioteca.controller.PrestitoController;
 import it.biblioteca.controller.UtenteController;
-import it.biblioteca.dao.*;
+import it.biblioteca.dao.BookDAO;
+import it.biblioteca.dao.CredenzialiDAO;
+import it.biblioteca.dao.PrenotazioneDAO;
+import it.biblioteca.dao.PrestitoDAO;
+import it.biblioteca.dao.UtenteDAO;
+import it.biblioteca.dao.jdbc.JdbcBookDAO;
+import it.biblioteca.dao.jdbc.JdbcCredenzialiDAO;
+import it.biblioteca.dao.jdbc.JdbcPrestitoDAO;
+import it.biblioteca.dao.jdbc.JdbcUtenteDAO;
+import it.biblioteca.dao.jdbc.JdbcPrenotazioneDAO; // rimuovi se non esiste
 import javafx.scene.Scene;
 import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 
+/**
+ * Alternativa a BibliotecaApp che incapsula la creazione di DAO/controller e
+ * l'inizializzazione della UI in un'istanza riutilizzabile.
+ */
 public class BibliotecaUI {
+
     private final Stage stage;
     private final BorderPane root;
-    private final BookController bookController;
-    private final PrestitoController prestitoController;
-    private final UtenteController utenteController;
-    private final NavigationManager navigationManager;
     private final ContentManager contentManager;
 
-    public BibliotecaUI(Stage stage, DatabaseConfig dbConfig) {
+    public BibliotecaUI(Stage stage) {
         this.stage = stage;
         this.root = new BorderPane();
 
-        // DAO
-        PrestitoDAO prestitoDAO = new PrestitoDAOImpl(dbConfig);
-        BookDAO bookDAO = new BookDAOImpl(dbConfig);
-        UtenteDAO utenteDAO = new UtenteDAOImpl(dbConfig);
+        // Istanzia DAO
+        UtenteDAO utenteDAO = new JdbcUtenteDAO();
+        PrestitoDAO prestitoDAO = new JdbcPrestitoDAO();
+        BookDAO bookDAO = new JdbcBookDAO();
+        CredenzialiDAO credenzialiDAO = new JdbcCredenzialiDAO();
 
-        // Controller: crea prima UtenteController, poi PrestitoController (che ora lo richiede), poi BookController
-        utenteController = new UtenteController(utenteDAO);
-        prestitoController = new PrestitoController(prestitoDAO, utenteController);
-        bookController = new BookController(bookDAO, prestitoController);
+        PrenotazioneDAO prenotazioneDAO = null;
+        try {
+            prenotazioneDAO = new JdbcPrenotazioneDAO();
+        } catch (NoClassDefFoundError | Exception ignored) {
+            prenotazioneDAO = null;
+        }
 
-        // UI Managers
-        navigationManager = new NavigationManager();
-        contentManager = new ContentManager(bookController, prestitoController, utenteController);
+        // Istanzia controller
+        UtenteController utenteController = new UtenteController(utenteDAO, credenzialiDAO);
+        PrestitoController prestitoController = new PrestitoController(prestitoDAO, utenteController);
+
+        PrenotazioneController prenotazioneController = null;
+        if (prenotazioneDAO != null) {
+            prenotazioneController = new PrenotazioneController(prenotazioneDAO);        }
+
+        BookController bookController = new BookController(bookDAO, prestitoController);
+
+        // Costruisci ContentManager con o senza prenotazioni
+        if (prenotazioneController != null) {
+            contentManager = new ContentManager(bookController, prestitoController, utenteController, prenotazioneController);
+        } else {
+            contentManager = new ContentManager(bookController, prestitoController, utenteController);
+        }
     }
 
-    public void inizializzaInterfaccia() {
-        stage.setTitle("Gestione Biblioteca");
-        Scene scene = new Scene(root, 1100, 750);
-
-        navigationManager.inizializzaNavigazione(root);
+    /**
+     * Inizializza e mostra la UI.
+     */
+    public void show() {
         contentManager.inizializzaContenuto(root);
-
-        navigationManager.setHomeButtonAction(e -> contentManager.mostraHome());
-        navigationManager.setBookButtonAction(e -> contentManager.mostraCatalogoLibri());
-        navigationManager.setLoanButtonAction(e -> contentManager.mostraPrestiti());
-        navigationManager.setUserButtonAction(e -> contentManager.mostraUtenti());
-
+        Scene scene = new Scene(root, 1100, 740);
+        stage.setTitle("Biblioteca");
         stage.setScene(scene);
         stage.show();
     }

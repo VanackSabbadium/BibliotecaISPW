@@ -6,8 +6,6 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 
-import java.util.Optional;
-
 public class StartupDialog extends Dialog<StartupResult> {
 
     public StartupDialog() {
@@ -23,7 +21,7 @@ public class StartupDialog extends Dialog<StartupResult> {
         grid.setPadding(new Insets(10));
 
         TextField txtUser = new TextField();
-        txtUser.setPromptText("Nome utente (Bibliotecario o Utente)");
+        txtUser.setPromptText("Username");
 
         PasswordField txtPass = new PasswordField();
         txtPass.setPromptText("Password");
@@ -31,8 +29,6 @@ public class StartupDialog extends Dialog<StartupResult> {
         ComboBox<Theme> cmbTheme = new ComboBox<>();
         cmbTheme.getItems().addAll(Theme.COLORI, Theme.BIANCO_NERO);
         cmbTheme.getSelectionModel().select(Theme.COLORI);
-
-        // Rimosso campo tessera: l'utente non deve inserirlo in login.
 
         grid.add(new Label("Utente:"), 0, 0);
         grid.add(txtUser, 1, 0);
@@ -47,9 +43,9 @@ public class StartupDialog extends Dialog<StartupResult> {
         okBtn.setDisable(true);
 
         Runnable validate = () -> {
-            String u = txtUser.getText();
-            String p = txtPass.getText();
-            boolean valid = u != null && !u.isBlank() && p != null && !p.isBlank() && cmbTheme.getValue() != null;
+            boolean valid = txtUser.getText() != null && !txtUser.getText().isBlank()
+                    && txtPass.getText() != null && !txtPass.getText().isBlank()
+                    && cmbTheme.getValue() != null;
             okBtn.setDisable(!valid);
         };
 
@@ -60,18 +56,14 @@ public class StartupDialog extends Dialog<StartupResult> {
 
         setResultConverter(bt -> {
             if (bt == okButtonType) {
-                // La tessera non è richiesta nella schermata di login: la lasciamo a null
+                // ATTENZIONE: StartupResult ora richiede 3 argomenti (username, password, theme)
                 return new StartupResult(
                         txtUser.getText().trim(),
                         txtPass.getText(),
-                        cmbTheme.getValue(),
-                        null
+                        cmbTheme.getValue()
                 );
             }
             return null;
         });
     }
-
-    // Non sovrascrivere showAndWait(); usare direttamente il metodo ereditato:
-    // Optional<StartupResult> result = new StartupDialog().showAndWait();
 }
