@@ -1,66 +1,84 @@
 package it.biblioteca.ui;
 
-import it.biblioteca.ui.ContentManager.Theme;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 
+/**
+ * Dialog iniziale che raccoglie:
+ * - credenziali DB (prefill Admin:admin, non modificabili)
+ * - credenziali applicative (username/password) usate per autenticare l'utente nell'app
+ * - scelta del tema
+ *
+ * Restituisce uno StartupResult con i campi necessari.
+ */
 public class StartupDialog extends Dialog<StartupResult> {
 
     public StartupDialog() {
-        setTitle("Accesso | Biblioteca");
-        setHeaderText("Inserisci le credenziali e scegli il tema grafico");
+        setTitle("Avvio - Configurazione");
+        setHeaderText("Configurazione DB e login applicativo");
 
-        ButtonType okButtonType = new ButtonType("Accedi", ButtonBar.ButtonData.OK_DONE);
-        getDialogPane().getButtonTypes().addAll(okButtonType, ButtonType.CANCEL);
+        getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
 
         GridPane grid = new GridPane();
         grid.setHgap(8);
         grid.setVgap(8);
         grid.setPadding(new Insets(10));
 
-        TextField txtUser = new TextField();
-        txtUser.setPromptText("Username");
+        // DB credentials (prefill Admin:admin, non editabili)
+        TextField dbUser = new TextField("Admin");
+        dbUser.setDisable(true);
+        PasswordField dbPass = new PasswordField();
+        dbPass.setText("admin");
+        dbPass.setDisable(true);
 
-        PasswordField txtPass = new PasswordField();
-        txtPass.setPromptText("Password");
+        // App credentials (per autenticazione applicativa)
+        TextField appUser = new TextField();
+        appUser.setPromptText("username applicativo");
+        PasswordField appPass = new PasswordField();
+        appPass.setPromptText("password applicativa");
 
-        ComboBox<Theme> cmbTheme = new ComboBox<>();
-        cmbTheme.getItems().addAll(Theme.COLORI, Theme.BIANCO_NERO);
-        cmbTheme.getSelectionModel().select(Theme.COLORI);
+        // Theme
+        ComboBox<ContentManager.Theme> cmbTheme = new ComboBox<>();
+        cmbTheme.getItems().addAll(ContentManager.Theme.COLORI, ContentManager.Theme.BIANCO_NERO);
+        cmbTheme.getSelectionModel().select(ContentManager.Theme.COLORI);
 
-        grid.add(new Label("Utente:"), 0, 0);
-        grid.add(txtUser, 1, 0);
-        grid.add(new Label("Password:"), 0, 1);
-        grid.add(txtPass, 1, 1);
-        grid.add(new Label("Tema:"), 0, 2);
-        grid.add(cmbTheme, 1, 2);
+        grid.add(new Label("DB Username:"), 0, 0);
+        grid.add(dbUser, 1, 0);
+        grid.add(new Label("DB Password:"), 0, 1);
+        grid.add(dbPass, 1, 1);
+
+        grid.add(new Label("Username (app):"), 0, 2);
+        grid.add(appUser, 1, 2);
+        grid.add(new Label("Password (app):"), 0, 3);
+        grid.add(appPass, 1, 3);
+
+        grid.add(new Label("Tema:"), 0, 4);
+        grid.add(cmbTheme, 1, 4);
 
         getDialogPane().setContent(grid);
 
-        Node okBtn = getDialogPane().lookupButton(okButtonType);
-        okBtn.setDisable(true);
+        // Abilita OK solo se username/app password compilate
+        Node okButton = getDialogPane().lookupButton(ButtonType.OK);
+        okButton.setDisable(true);
 
-        Runnable validate = () -> {
-            boolean valid = txtUser.getText() != null && !txtUser.getText().isBlank()
-                    && txtPass.getText() != null && !txtPass.getText().isBlank()
-                    && cmbTheme.getValue() != null;
-            okBtn.setDisable(!valid);
-        };
-
-        txtUser.textProperty().addListener((o, a, b) -> validate.run());
-        txtPass.textProperty().addListener((o, a, b) -> validate.run());
-        cmbTheme.valueProperty().addListener((o, a, b) -> validate.run());
+        Runnable validate = () -> okButton.setDisable(
+                appUser.getText() == null || appUser.getText().trim().isEmpty()
+                        || appPass.getText() == null || appPass.getText().trim().isEmpty()
+        );
+        appUser.textProperty().addListener((obs, o, n) -> validate.run());
+        appPass.textProperty().addListener((obs, o, n) -> validate.run());
         validate.run();
 
         setResultConverter(bt -> {
-            if (bt == okButtonType) {
-                // ATTENZIONE: StartupResult ora richiede 3 argomenti (username, password, theme)
+            if (bt == ButtonType.OK) {
                 return new StartupResult(
-                        txtUser.getText().trim(),
-                        txtPass.getText(),
-                        cmbTheme.getValue()
+                        dbUser.getText(),                // username DB (Admin)
+                        dbPass.getText(),                // password DB
+                        appUser.getText().trim(),        // username applicativo
+                        appPass.getText(),               // password applicativa
+                        cmbTheme.getValue()              // tema
                 );
             }
             return null;
