@@ -5,14 +5,6 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 
-/**
- * Dialog iniziale che raccoglie:
- * - credenziali DB (prefill Admin:admin, non modificabili)
- * - credenziali applicative (username/password) usate per autenticare l'utente nell'app
- * - scelta del tema
- *
- * Restituisce uno StartupResult con i campi necessari.
- */
 public class StartupDialog extends Dialog<StartupResult> {
 
     public StartupDialog() {
@@ -26,20 +18,17 @@ public class StartupDialog extends Dialog<StartupResult> {
         grid.setVgap(8);
         grid.setPadding(new Insets(10));
 
-        // DB credentials (prefill Admin:admin, non editabili)
         TextField dbUser = new TextField("Admin");
         dbUser.setDisable(true);
         PasswordField dbPass = new PasswordField();
         dbPass.setText("admin");
         dbPass.setDisable(true);
 
-        // App credentials (per autenticazione applicativa)
         TextField appUser = new TextField();
         appUser.setPromptText("username applicativo");
         PasswordField appPass = new PasswordField();
         appPass.setPromptText("password applicativa");
 
-        // Theme
         ComboBox<ContentManager.Theme> cmbTheme = new ComboBox<>();
         cmbTheme.getItems().addAll(ContentManager.Theme.COLORI, ContentManager.Theme.BIANCO_NERO);
         cmbTheme.getSelectionModel().select(ContentManager.Theme.COLORI);
@@ -59,7 +48,6 @@ public class StartupDialog extends Dialog<StartupResult> {
 
         getDialogPane().setContent(grid);
 
-        // Abilita OK solo se username/app password compilate
         Node okButton = getDialogPane().lookupButton(ButtonType.OK);
         okButton.setDisable(true);
 

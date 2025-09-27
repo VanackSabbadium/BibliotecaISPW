@@ -6,13 +6,9 @@ import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.util.Pair;
 
-/**
- * Dialog semplice per creare/modificare username+password per un utente.
- * Restituisce Pair<username,password> se OK, altrimenti empty.
- */
 public class CredentialsDialog extends Dialog<Pair<String, String>> {
 
-    public CredentialsDialog(Long userId, String existingUsername, String existingPasswordPlain) {
+    public CredentialsDialog(String existingUsername, String existingPasswordPlain) {
         setTitle("Crea/Modifica credenziali");
         setHeaderText("Inserisci username e password per l'utente selezionato");
 

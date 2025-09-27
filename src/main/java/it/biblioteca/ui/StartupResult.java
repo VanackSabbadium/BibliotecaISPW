@@ -1,11 +1,5 @@
 package it.biblioteca.ui;
 
-/**
- * Risultato del dialog di startup.
- *
- * Nota: espone sia i metodi getUsername/getPassword (usati da DatabaseConfig),
- * sia getAppUsername/getAppPassword (per l'autenticazione applicativa).
- */
 public class StartupResult {
     private final String dbUsername;
     private final String dbPassword;

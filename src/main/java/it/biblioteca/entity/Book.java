@@ -1,4 +1,3 @@
-// src/main/java/it/biblioteca/entity/Book.java
 package it.biblioteca.entity;
 
 import java.time.LocalDate;
@@ -10,22 +9,10 @@ public class Book {
     private String autore;
     private LocalDate dataPubblicazione;
     private String casaEditrice;
-    private boolean attivo = true; // può restare; ora cancelliamo fisicamente
+    private boolean attivo = true;
     private int copie = 1;
 
     public Book() {}
-
-    public Book(Long id, String isbn, String titolo, String autore,
-                LocalDate dataPubblicazione, String casaEditrice, boolean attivo, int copie) {
-        this.id = id;
-        this.isbn = isbn;
-        this.titolo = titolo;
-        this.autore = autore;
-        this.dataPubblicazione = dataPubblicazione;
-        this.casaEditrice = casaEditrice;
-        this.attivo = attivo;
-        this.copie = copie;
-    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -45,7 +32,6 @@ public class Book {
     public String getCasaEditrice() { return casaEditrice; }
     public void setCasaEditrice(String casaEditrice) { this.casaEditrice = casaEditrice; }
 
-    public boolean isAttivo() { return attivo; }
     public void setAttivo(boolean attivo) { this.attivo = attivo; }
 
     public int getCopie() { return copie; }

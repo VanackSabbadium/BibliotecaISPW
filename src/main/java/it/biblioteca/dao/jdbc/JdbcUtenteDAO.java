@@ -3,30 +3,20 @@ package it.biblioteca.dao.jdbc;
 import it.biblioteca.dao.UtenteDAO;
 import it.biblioteca.entity.Utente;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.*;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.security.MessageDigest;
 
-/**
- * Implementazione JDBC di UtenteDAO.
- *
- * ATTENZIONE: questo codice assume che exista un helper:
- *   it.biblioteca.db.DatabaseConfig.getConnection()
- * che restituisce java.sql.Connection correttamente configurata.
- *
- * Se la tua applicazione usa un altro helper per la connessione, sostituisci la chiamata.
- */
 public class JdbcUtenteDAO implements UtenteDAO {
 
-    // helper per hash SHA-256
     private String sha256Hex(String plain) {
         if (plain == null) return null;
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] digest = md.digest(plain.getBytes("UTF-8"));
+            byte[] digest = md.digest(plain.getBytes(StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder();
             for (byte b : digest) sb.append(String.format("%02x", b));
             return sb.toString();
@@ -121,9 +111,6 @@ public class JdbcUtenteDAO implements UtenteDAO {
         }
     }
 
-    // -------------------------------------------------------------
-    // Metodi gestione credenziali
-    // -------------------------------------------------------------
     @Override
     public boolean creaCredenziali(Long utenteId, String username, String passwordPlain) throws Exception {
         if (utenteId == null || username == null || username.isBlank() || passwordPlain == null) return false;
@@ -168,7 +155,6 @@ public class JdbcUtenteDAO implements UtenteDAO {
             ps.setLong(4, utenteId);
             int rows = ps.executeUpdate();
             if (rows > 0) return true;
-            // se non aggiornato (nessuna riga), proviamo ad inserire
             return creaCredenziali(utenteId, username, passwordPlain);
         } catch (SQLException ex) {
             if (ex.getErrorCode() == 1054 || ex.getSQLState().startsWith("42")) {
@@ -188,30 +174,6 @@ public class JdbcUtenteDAO implements UtenteDAO {
     }
 
     @Override
-    public boolean rimuoviCredenziali(Long utenteId) throws Exception {
-        String sql = "DELETE FROM credenziali WHERE utente_id = ?";
-        try (Connection c = getConn(); PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setLong(1, utenteId);
-            int rows = ps.executeUpdate();
-            return rows > 0;
-        }
-    }
-
-    @Override
-    public Optional<Utente> findByUsername(String username) throws Exception {
-        String sql = "SELECT u.id,u.tessera,u.nome,u.cognome,u.email,u.telefono,u.data_attivazione,u.data_scadenza," +
-                " c.username, c.password_plain " +
-                "FROM credenziali c JOIN utenti u ON c.utente_id = u.id WHERE c.username = ?";
-        try (Connection c = getConn(); PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, username);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return Optional.of(mapRow(rs));
-            }
-        }
-        return Optional.empty();
-    }
-
-    @Override
     public Optional<String> getUsernameForUserId(Long utenteId) throws Exception {
         String sql = "SELECT username FROM credenziali WHERE utente_id = ?";
         try (Connection c = getConn(); PreparedStatement ps = c.prepareStatement(sql)) {
@@ -223,7 +185,6 @@ public class JdbcUtenteDAO implements UtenteDAO {
         return Optional.empty();
     }
 
-    // utility di mapping
     private Utente mapRow(ResultSet rs) throws SQLException {
         Utente u = new Utente();
         u.setId(rs.getLong("id"));

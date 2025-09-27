@@ -12,9 +12,8 @@ public class Utente {
     private LocalDate dataAttivazione;
     private LocalDate dataScadenza;
 
-    // campi aggiunti per mostrare username/password nella UI (Admin)
     private String username;
-    private String password; // password in chiaro (se presente in DB) — attenzione alla sicurezza
+    private String password;
 
     public Utente() {}
 
@@ -42,14 +41,8 @@ public class Utente {
     public LocalDate getDataScadenza() { return dataScadenza; }
     public void setDataScadenza(LocalDate dataScadenza) { this.dataScadenza = dataScadenza; }
 
-    // --- nuovi getter/setter per username/password (popolati dal DAO con LEFT JOIN su credenziali) ---
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
 
-    /**
-     * NOTA: questo campo contiene la password in chiaro se la colonna password_plain è presente
-     * e valorizzata nel DB. Per ragioni di sicurezza valutare di non salvare password in chiaro.
-     */
-    public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
 }

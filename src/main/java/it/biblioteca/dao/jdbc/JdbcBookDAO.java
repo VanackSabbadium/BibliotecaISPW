@@ -8,7 +8,6 @@ import it.biblioteca.entity.Book;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 public class JdbcBookDAO implements BookDAO {
     private final ConnectionProvider cp;
@@ -23,7 +22,6 @@ public class JdbcBookDAO implements BookDAO {
 
     @Override
     public void salvaLibro(Book b) {
-        // Non usiamo la colonna 'attivo' qui: lasciamo il default (1) gestito dal DB
         String sql = "INSERT INTO libri (isbn, titolo, autore, casa_editrice, data_pubblicazione, copie) VALUES (?,?,?,?,?,?)";
         try (Connection c = cp.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -50,7 +48,6 @@ public class JdbcBookDAO implements BookDAO {
 
     @Override
     public void aggiornaLibro(Book b) {
-        // Non aggiorniamo 'attivo' perché non esiste nella tua entità Book
         String sql = "UPDATE libri SET isbn=?, titolo=?, autore=?, casa_editrice=?, data_pubblicazione=?, copie=? WHERE id=?";
         try (Connection c = cp.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
@@ -87,7 +84,6 @@ public class JdbcBookDAO implements BookDAO {
 
     @Override
     public List<Book> trovaTutti() {
-        // Mostriamo solo libri attivi; il mapping non richiede il campo 'attivo' nell'entità
         String sql = "SELECT id, isbn, titolo, autore, casa_editrice, data_pubblicazione, copie FROM libri WHERE attivo = 1";
         List<Book> out = new ArrayList<>();
         try (Connection c = cp.getConnection();
@@ -112,28 +108,4 @@ public class JdbcBookDAO implements BookDAO {
         return out;
     }
 
-    @Override
-    public Optional<Book> trovaPerId(Long id) {
-        String sql = "SELECT id, isbn, titolo, autore, casa_editrice, data_pubblicazione, copie FROM libri WHERE id=?";
-        try (Connection c = cp.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-
-            ps.setLong(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) return Optional.empty();
-                Book b = new Book();
-                b.setId(rs.getLong("id"));
-                b.setIsbn(rs.getString("isbn"));
-                b.setTitolo(rs.getString("titolo"));
-                b.setAutore(rs.getString("autore"));
-                b.setCasaEditrice(rs.getString("casa_editrice"));
-                Date d = rs.getDate("data_pubblicazione");
-                b.setDataPubblicazione(d != null ? d.toLocalDate() : null);
-                b.setCopie(rs.getInt("copie"));
-                return Optional.of(b);
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException("Errore trovaPerId libro", e);
-        }
-    }
 }

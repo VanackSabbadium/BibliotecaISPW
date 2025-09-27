@@ -2,6 +2,7 @@ package it.biblioteca.security;
 
 import it.biblioteca.db.DatabaseConfig;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -9,22 +10,7 @@ import java.sql.ResultSet;
 
 public final class AuthService {
 
-    private AuthService() {}
-
-    public static final class AuthResult {
-        public final boolean ok;
-        public final String username;
-        public final SessionContext.AppRole role;
-        public final Long userId;
-        public final Integer tessera;
-
-        public AuthResult(boolean ok, String username, SessionContext.AppRole role, Long userId, Integer tessera) {
-            this.ok = ok;
-            this.username = username;
-            this.role = role;
-            this.userId = userId;
-            this.tessera = tessera;
-        }
+    public record AuthResult(boolean ok, String username, SessionContext.AppRole role, Long userId, Integer tessera) {
     }
 
     public static AuthResult authenticate(String username, String passwordPlain) {
@@ -85,7 +71,7 @@ public final class AuthService {
     private static String sha256(String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] b = md.digest(input.getBytes("UTF-8"));
+            byte[] b = md.digest(input.getBytes(StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder();
             for (byte x : b) sb.append(String.format("%02x", x & 0xff));
             return sb.toString();

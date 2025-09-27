@@ -2,11 +2,6 @@ package it.biblioteca.bean;
 
 import java.time.LocalDate;
 
-/**
- * Bean di trasferimento dati per operazioni sui prestiti.
- * Utilizzato da controller/DAO per inserire e chiudere prestiti.
- */
-
 public class PrestitoBean {
     private Long id;
 
@@ -73,14 +68,4 @@ public class PrestitoBean {
     public void setDataPrestito(LocalDate dataPrestito) {
         this.dataPrestito = dataPrestito;
     }
-
-    /*
-    public LocalDate getDataRestituzione() {
-        return dataRestituzione;
-    }
-
-    public void setDataRestituzione(LocalDate dataRestituzione) {
-        this.dataRestituzione = dataRestituzione;
-    }
-    */
 }

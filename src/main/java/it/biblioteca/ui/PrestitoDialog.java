@@ -9,23 +9,11 @@ import javafx.scene.layout.GridPane;
 
 import java.time.LocalDate;
 
-/**
- * Dialog per confermare i dati di un nuovo prestito.
- * - Mostra info del libro e dell'utente selezionati (read-only).
- * - Permette di scegliere la data del prestito (default: oggi).
- * - Ritorna un PrestitoBean pronto per l'inserimento.
- */
 public class PrestitoDialog extends Dialog<PrestitoBean> {
-    private final Book selectedBook;
-    private final Utente selectedUser;
 
-    private final TextField txtLibro = new TextField();
-    private final TextField txtUtente = new TextField();
     private final DatePicker dpDataPrestito = new DatePicker(LocalDate.now());
 
     public PrestitoDialog(Book selectedBook, Utente selectedUser) {
-        this.selectedBook = selectedBook;
-        this.selectedUser = selectedUser;
 
         setTitle("Conferma Prestito");
         setHeaderText("Verifica i dati e conferma il prestito");
@@ -37,7 +25,9 @@ public class PrestitoDialog extends Dialog<PrestitoBean> {
         form.setPadding(new Insets(15));
 
         int r = 0;
+        TextField txtLibro = new TextField();
         txtLibro.setEditable(false);
+        TextField txtUtente = new TextField();
         txtUtente.setEditable(false);
 
         String titoloLibro = selectedBook != null && selectedBook.getTitolo() != null ? selectedBook.getTitolo() : "";
@@ -66,7 +56,7 @@ public class PrestitoDialog extends Dialog<PrestitoBean> {
         Button okBtn = (Button) getDialogPane().lookupButton(okType);
         okBtn.addEventFilter(javafx.event.ActionEvent.ACTION, ev -> {
             if (dpDataPrestito.getValue() == null) {
-                showError("La data del prestito è obbligatoria.");
+                showError();
                 ev.consume();
             }
         });
@@ -91,8 +81,8 @@ public class PrestitoDialog extends Dialog<PrestitoBean> {
         });
     }
 
-    private void showError(String msg) {
-        Alert a = new Alert(Alert.AlertType.ERROR, msg, ButtonType.OK);
+    private void showError() {
+        Alert a = new Alert(Alert.AlertType.ERROR, "La data del prestito è obbligatoria.", ButtonType.OK);
         a.setHeaderText(null);
         a.showAndWait();
     }

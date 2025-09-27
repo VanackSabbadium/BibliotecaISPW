@@ -1,4 +1,3 @@
-// src/main/java/it/biblioteca/ui/SelectBookDialog.java
 package it.biblioteca.ui;
 
 import it.biblioteca.entity.Book;
@@ -46,7 +45,6 @@ public class SelectBookDialog extends Dialog<Book> {
         ButtonType okType = new ButtonType("Seleziona", ButtonBar.ButtonData.OK_DONE);
         getDialogPane().getButtonTypes().addAll(okType, ButtonType.CANCEL);
 
-        // Disabilita OK se nulla è selezionato
         getDialogPane().lookupButton(okType).disableProperty().bind(
                 table.getSelectionModel().selectedItemProperty().isNull()
         );

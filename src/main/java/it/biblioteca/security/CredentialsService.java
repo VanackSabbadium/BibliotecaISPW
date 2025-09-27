@@ -2,13 +2,12 @@ package it.biblioteca.security;
 
 import it.biblioteca.db.DatabaseConfig;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
 public final class CredentialsService {
-
-    private CredentialsService() {}
 
     public static boolean creaCredenziali(Long utenteId, String username, String passwordPlain, String role) {
         if (utenteId == null || username == null || username.isBlank() || passwordPlain == null || passwordPlain.isBlank())
@@ -43,19 +42,6 @@ public final class CredentialsService {
         }
     }
 
-    public static boolean rimuoviCredenziali(Long utenteId) {
-        if (utenteId == null) return false;
-        final String sql = "DELETE FROM credenziali WHERE utente_id = ?";
-        try (Connection c = DatabaseConfig.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setLong(1, utenteId);
-            return ps.executeUpdate() > 0;
-        } catch (Exception e) {
-            System.err.println("CredentialsService.rimuoviCredenziali failed: " + e.getMessage());
-            return false;
-        }
-    }
-
     public static CredInfo findByUtenteId(Long utenteId) {
         final String sql = "SELECT username, role FROM credenziali WHERE utente_id = ?";
         try (Connection c = DatabaseConfig.getConnection();
@@ -72,16 +58,13 @@ public final class CredentialsService {
         return null;
     }
 
-    public static final class CredInfo {
-        public final String username;
-        public final String role;
-        public CredInfo(String username, String role) { this.username = username; this.role = role; }
+    public record CredInfo(String username, String role) {
     }
 
     private static String sha256(String input) {
         try {
             java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] b = md.digest(input.getBytes("UTF-8"));
+            byte[] b = md.digest(input.getBytes(StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder();
             for (byte x : b) sb.append(String.format("%02x", x & 0xff));
             return sb.toString();

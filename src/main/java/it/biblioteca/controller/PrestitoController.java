@@ -11,7 +11,6 @@ public class PrestitoController {
     private final PrestitoDAO prestitoDAO;
     private final UtenteController utenteController; // per la verifica attivo
 
-    // Esito strutturato per distinguere i casi di fallimento
     public enum Esito {
         OK,
         UTENTE_INATTIVO,
@@ -31,7 +30,6 @@ public class PrestitoController {
         return prestitoDAO.trovaPrestitiAttivi();
     }
 
-    // Ora ritorna un Esito, non un boolean
     public Esito registraPrestito(PrestitoBean bean) {
         Long utenteId = bean.getUtenteId();
         if (utenteId == null || !utenteController.isAttivoById(utenteId)) {
@@ -45,7 +43,6 @@ public class PrestitoController {
         return prestitoDAO.chiudiPrestito(prestitoId, dataRestituzione);
     }
 
-    // Usato da BookController per verificare libri con prestiti attivi
     public boolean esistonoPrestitiAttiviPerLibro(Long libroId) {
         if (libroId == null) return false;
         return prestitoDAO.trovaPrestitiAttivi()

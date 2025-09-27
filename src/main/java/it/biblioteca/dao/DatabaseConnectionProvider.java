@@ -12,10 +12,8 @@ public class DatabaseConnectionProvider implements ConnectionProvider {
     public Connection getConnection() throws SQLException {
         Connection conn = DatabaseConfig.getConnection();
 
-        // Se connessi come "Utente", impostiamo la tessera tramite funzione di sessione MySQL
         if (SessionContext.isUtente() && SessionContext.getTessera() != null) {
             try (Statement st = conn.createStatement()) {
-                // Imposta il contesto di sessione per la vista 'utenti_self'
                 st.execute("SELECT biblioteca.set_app_tessera(" + SessionContext.getTessera() + ")");
             }
         }

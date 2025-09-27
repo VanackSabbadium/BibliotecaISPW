@@ -14,11 +14,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Implementazione JDBC per PrestitoDAO più tollerante allo schema:
- * - usa SELECT * e accede alle colonne solo se presenti (metadata)
- * - implementa inserisci/chiudiPrestito in modo robusto rispetto a colonne legacy.
- */
 public class JdbcPrestitoDAO implements PrestitoDAO {
     private final ConnectionProvider cp;
 

@@ -1,4 +1,3 @@
-// src/main/java/it/biblioteca/controller/BookController.java
 package it.biblioteca.controller;
 
 import it.biblioteca.bean.BookBean;
@@ -6,16 +5,8 @@ import it.biblioteca.dao.BookDAO;
 import it.biblioteca.entity.Book;
 
 import java.util.List;
-// import java.util.Optional;
 
-public class BookController {
-    private final BookDAO dao;
-    private final PrestitoController prestitoController;
-
-    public BookController(BookDAO dao, PrestitoController prestitoController) {
-        this.dao = dao;
-        this.prestitoController = prestitoController;
-    }
+public record BookController(BookDAO dao, PrestitoController prestitoController) {
 
     public boolean aggiungiLibro(BookBean bean) {
         if (!validaLibro(bean)) return false;
@@ -29,7 +20,7 @@ public class BookController {
     }
 
     public boolean aggiornaLibro(BookBean bean) {
-        if (bean == null || bean.getId() == null || !validaLibro(bean)) return false;
+        if (bean == null || bean.getId() == null || validaLibro(bean)) return true;
         Book b = toEntity(bean);
         b.setId(bean.getId());
         try {
@@ -57,9 +48,7 @@ public class BookController {
         return dao.trovaTutti();
     }
 
-    // public Optional<Book> trovaPerId(Long id) { return dao.trovaPerId(id); }
-
-    private boolean validaLibro(BookBean bean) {
+   private boolean validaLibro(BookBean bean) {
         return bean != null &&
                 bean.getIsbn() != null && !bean.getIsbn().isBlank() &&
                 bean.getTitolo() != null && !bean.getTitolo().isBlank() &&

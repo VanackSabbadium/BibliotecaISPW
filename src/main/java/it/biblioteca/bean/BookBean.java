@@ -1,4 +1,3 @@
-// src/main/java/it/biblioteca/bean/BookBean.java
 package it.biblioteca.bean;
 
 import java.time.LocalDate;

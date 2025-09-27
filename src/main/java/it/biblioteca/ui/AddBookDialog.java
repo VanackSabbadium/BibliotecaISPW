@@ -1,4 +1,3 @@
-// src/main/java/it/biblioteca/ui/AddBookDialog.java
 package it.biblioteca.ui;
 
 import it.biblioteca.bean.BookBean;
