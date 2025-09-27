@@ -56,7 +56,6 @@ public class JdbcPrestitoDAO implements PrestitoDAO {
 
     @Override
     public boolean inserisci(PrestitoBean bean) {
-        // validazione minima
         if (bean == null || bean.getLibroId() == null || bean.getUtenteId() == null) {
             return false;
         }
@@ -73,7 +72,6 @@ public class JdbcPrestitoDAO implements PrestitoDAO {
             boolean reqLegacyUser = hasLegacyUser && cols.get("utente").notNull && !cols.get("utente").hasDefault;
             boolean reqLegacyBook = hasLegacyBook && cols.get("libro").notNull && !cols.get("libro").hasDefault;
 
-            // Costruisco lista colonne dinamicamente
             List<String> insertCols = new ArrayList<>();
             insertCols.add("libro_id");
             insertCols.add("utente_id");
@@ -87,14 +85,12 @@ public class JdbcPrestitoDAO implements PrestitoDAO {
             String placeholders = String.join(",", Collections.nCopies(insertCols.size(), "?"));
             String sql = "INSERT INTO prestiti (" + String.join(",", insertCols) + ") VALUES (" + placeholders + ")";
 
-            try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            try (PreparedStatement ps = c.prepareStatement(sql)) {
                 int i = 1;
-                // obbligatorie
                 ps.setObject(i++, bean.getLibroId(), java.sql.Types.BIGINT);
                 ps.setObject(i++, bean.getUtenteId(), java.sql.Types.BIGINT);
                 ps.setDate(i++, java.sql.Date.valueOf(dp));
 
-                // colonne dinamiche nell'ordine costruito
                 for (int k = 3; k < insertCols.size(); k++) {
                     String col = insertCols.get(k);
                     switch (col) {
@@ -130,9 +126,6 @@ public class JdbcPrestitoDAO implements PrestitoDAO {
         }
     }
 
-    // ------------------------
-    // Mapping flessibile in lettura
-    // ------------------------
     private Prestito mapFlexible(ResultSet rs) throws SQLException {
         Prestito p = new Prestito();
 
@@ -140,7 +133,6 @@ public class JdbcPrestitoDAO implements PrestitoDAO {
         p.setLibroId(getLongObj(rs, "libro_id"));
         p.setUtenteId(getLongObj(rs, "utente_id"));
 
-        // Snapshot utente: priorità a 'utente_snapshot', fallback 'utente'
         String utenteSnap = null;
         if (hasColumn(rs, "utente_snapshot")) {
             utenteSnap = rs.getString("utente_snapshot");
@@ -149,7 +141,6 @@ public class JdbcPrestitoDAO implements PrestitoDAO {
         }
         p.setUtente(utenteSnap);
 
-        // Snapshot titolo libro: priorità a 'libro_titolo_snapshot', fallback 'libro'
         String libroTitSnap = null;
         if (hasColumn(rs, "libro_titolo_snapshot")) {
             libroTitSnap = rs.getString("libro_titolo_snapshot");
@@ -164,9 +155,6 @@ public class JdbcPrestitoDAO implements PrestitoDAO {
         return p;
     }
 
-    // ------------------------
-    // Helpers metadati/resultset
-    // ------------------------
     private static boolean hasColumn(ResultSet rs, String col) throws SQLException {
         ResultSetMetaData md = rs.getMetaData();
         int cols = md.getColumnCount();
@@ -211,7 +199,6 @@ public class JdbcPrestitoDAO implements PrestitoDAO {
         Map<String, ColInfo> map = new HashMap<>();
         DatabaseMetaData md = c.getMetaData();
 
-        // Prova con il nome così com'è
         try (ResultSet rs = md.getColumns(null, null, tableName, null)) {
             while (rs.next()) {
                 String name = rs.getString("COLUMN_NAME");
