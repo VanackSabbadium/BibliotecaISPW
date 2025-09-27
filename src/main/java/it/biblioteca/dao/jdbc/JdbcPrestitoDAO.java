@@ -8,17 +8,31 @@ import it.biblioteca.entity.Prestito;
 
 import java.sql.*;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class JdbcPrestitoDAO implements PrestitoDAO {
     private final ConnectionProvider cp;
 
     public JdbcPrestitoDAO() { this(new DatabaseConnectionProvider()); }
     public JdbcPrestitoDAO(ConnectionProvider cp) { this.cp = cp; }
+
+    // WHITELIST delle colonne che possiamo inserire dinamicamente nella tabella `prestiti`.
+    // Aggiungi qui eventuali colonne legittime che vuoi consentire.
+    private static final Set<String> ALLOWED_INSERT_COLS = Set.of(
+            "libro_id",
+            "utente_id",
+            "data_prestito",
+            "data_restituzione",
+            "libro_isbn_snapshot",
+            "libro_titolo_snapshot",
+            "libro_autore_snapshot",
+            "utente_nome_snapshot",
+            "utente_cognome_snapshot",
+            "utente_snapshot",
+            "utente_descrizione",
+            "utente",
+            "libro"
+    );
 
     @Override
     public List<Prestito> trovaTutti() {
@@ -82,10 +96,22 @@ public class JdbcPrestitoDAO implements PrestitoDAO {
             if (reqLegacyUser) insertCols.add("utente");
             if (reqLegacyBook) insertCols.add("libro");
 
+            // VALIDAZIONE: assicurati che tutte le colonne che stai per inserire
+            // siano nella whitelist (prevenzione SQL injection su nomi di colonne)
+            for (String col : insertCols) {
+                if (col == null) {
+                    throw new SQLException("Nome colonna nullo nelle colonne di insert");
+                }
+                String normalized = col.trim().toLowerCase(Locale.ROOT);
+                if (!ALLOWED_INSERT_COLS.contains(normalized)) {
+                    throw new SQLException("Colonna non consentita per INSERT in prestiti: " + col);
+                }
+            }
+
             String placeholders = String.join(",", Collections.nCopies(insertCols.size(), "?"));
             String sql = "INSERT INTO prestiti (" + String.join(",", insertCols) + ") VALUES (" + placeholders + ")";
 
-            try (PreparedStatement ps = c.prepareStatement(sql)) {
+            try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 int i = 1;
                 ps.setObject(i++, bean.getLibroId(), java.sql.Types.BIGINT);
                 ps.setObject(i++, bean.getUtenteId(), java.sql.Types.BIGINT);
