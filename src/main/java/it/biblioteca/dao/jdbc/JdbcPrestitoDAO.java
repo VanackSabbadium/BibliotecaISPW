@@ -16,24 +16,6 @@ public class JdbcPrestitoDAO implements PrestitoDAO {
     public JdbcPrestitoDAO() { this(new DatabaseConnectionProvider()); }
     public JdbcPrestitoDAO(ConnectionProvider cp) { this.cp = cp; }
 
-    // WHITELIST delle colonne che possiamo inserire dinamicamente nella tabella `prestiti`.
-    // Aggiungi qui eventuali colonne legittime che vuoi consentire.
-    private static final Set<String> ALLOWED_INSERT_COLS = Set.of(
-            "libro_id",
-            "utente_id",
-            "data_prestito",
-            "data_restituzione",
-            "libro_isbn_snapshot",
-            "libro_titolo_snapshot",
-            "libro_autore_snapshot",
-            "utente_nome_snapshot",
-            "utente_cognome_snapshot",
-            "utente_snapshot",
-            "utente_descrizione",
-            "utente",
-            "libro"
-    );
-
     @Override
     public List<Prestito> trovaTutti() {
         String sql = "SELECT * FROM prestiti ORDER BY id DESC";
@@ -75,8 +57,14 @@ public class JdbcPrestitoDAO implements PrestitoDAO {
         }
         LocalDate dp = (bean.getDataPrestito() != null) ? bean.getDataPrestito() : LocalDate.now();
 
-        try (Connection c = cp.getConnection()) {
-            Map<String, ColInfo> cols = getColumnsMeta(c, "prestiti");
+        Connection c = null;
+        boolean previousAutoCommit = true;
+        try {
+            c = cp.getConnection();
+            previousAutoCommit = c.getAutoCommit();
+            c.setAutoCommit(false);
+
+            Map<String, ColInfo> cols = getColumnsMeta(c);
 
             boolean hasUserSnap   = cols.containsKey("utente_snapshot");
             boolean hasBookSnap   = cols.containsKey("libro_titolo_snapshot");
@@ -86,55 +74,79 @@ public class JdbcPrestitoDAO implements PrestitoDAO {
             boolean reqLegacyUser = hasLegacyUser && cols.get("utente").notNull && !cols.get("utente").hasDefault;
             boolean reqLegacyBook = hasLegacyBook && cols.get("libro").notNull && !cols.get("libro").hasDefault;
 
-            List<String> insertCols = new ArrayList<>();
-            insertCols.add("libro_id");
-            insertCols.add("utente_id");
-            insertCols.add("data_prestito");
-
-            if (hasUserSnap)   insertCols.add("utente_snapshot");
-            if (hasBookSnap)   insertCols.add("libro_titolo_snapshot");
-            if (reqLegacyUser) insertCols.add("utente");
-            if (reqLegacyBook) insertCols.add("libro");
-
-            // VALIDAZIONE: assicurati che tutte le colonne che stai per inserire
-            // siano nella whitelist (prevenzione SQL injection su nomi di colonne)
-            for (String col : insertCols) {
-                if (col == null) {
-                    throw new SQLException("Nome colonna nullo nelle colonne di insert");
+            String insertSql = "INSERT INTO prestiti (libro_id, utente_id, data_prestito) VALUES (?, ?, ?)";
+            long generatedId;
+            try (PreparedStatement ps = c.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setObject(1, bean.getLibroId(), Types.BIGINT);
+                ps.setObject(2, bean.getUtenteId(), Types.BIGINT);
+                ps.setDate(3, java.sql.Date.valueOf(dp));
+                int updated = ps.executeUpdate();
+                if (updated == 0) {
+                    c.rollback();
+                    return false;
                 }
-                String normalized = col.trim().toLowerCase(Locale.ROOT);
-                if (!ALLOWED_INSERT_COLS.contains(normalized)) {
-                    throw new SQLException("Colonna non consentita per INSERT in prestiti: " + col);
-                }
-            }
-
-            String placeholders = String.join(",", Collections.nCopies(insertCols.size(), "?"));
-            String sql = "INSERT INTO prestiti (" + String.join(",", insertCols) + ") VALUES (" + placeholders + ")";
-
-            try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                int i = 1;
-                ps.setObject(i++, bean.getLibroId(), java.sql.Types.BIGINT);
-                ps.setObject(i++, bean.getUtenteId(), java.sql.Types.BIGINT);
-                ps.setDate(i++, java.sql.Date.valueOf(dp));
-
-                for (int k = 3; k < insertCols.size(); k++) {
-                    String col = insertCols.get(k);
-                    switch (col) {
-                        case "utente_snapshot" -> ps.setString(i++, bean.getUtenteSnapshot());
-                        case "libro_titolo_snapshot" -> ps.setString(i++, bean.getLibroTitoloSnapshot());
-                        case "utente" -> ps.setString(i++, safeSnapshotUtente(bean));
-                        case "libro" -> ps.setString(i++, safeSnapshotLibro(bean));
-                        default -> ps.setObject(i++, null);
+                try (ResultSet gk = ps.getGeneratedKeys()) {
+                    if (gk != null && gk.next()) {
+                        generatedId = gk.getLong(1);
+                    } else {
+                        c.rollback();
+                        return false;
                     }
                 }
-
-                int n = ps.executeUpdate();
-                return n > 0;
             }
+
+            if (hasUserSnap) {
+                String upd = "UPDATE prestiti SET utente_snapshot = ? WHERE id = ?";
+                try (PreparedStatement ps = c.prepareStatement(upd)) {
+                    ps.setString(1, bean.getUtenteSnapshot());
+                    ps.setLong(2, generatedId);
+                    ps.executeUpdate();
+                }
+            }
+            if (hasBookSnap) {
+                String upd = "UPDATE prestiti SET libro_titolo_snapshot = ? WHERE id = ?";
+                try (PreparedStatement ps = c.prepareStatement(upd)) {
+                    ps.setString(1, bean.getLibroTitoloSnapshot());
+                    ps.setLong(2, generatedId);
+                    ps.executeUpdate();
+                }
+            }
+
+            if (reqLegacyUser || (hasLegacyUser && bean.getUtenteSnapshot() != null)) {
+                String upd = "UPDATE prestiti SET utente = ? WHERE id = ?";
+                try (PreparedStatement ps = c.prepareStatement(upd)) {
+                    ps.setString(1, safeSnapshotUtente(bean));
+                    ps.setLong(2, generatedId);
+                    ps.executeUpdate();
+                }
+            }
+
+            if (reqLegacyBook || (hasLegacyBook && bean.getLibroTitoloSnapshot() != null)) {
+                String upd = "UPDATE prestiti SET libro = ? WHERE id = ?";
+                try (PreparedStatement ps = c.prepareStatement(upd)) {
+                    ps.setString(1, safeSnapshotLibro(bean));
+                    ps.setLong(2, generatedId);
+                    ps.executeUpdate();
+                }
+            }
+
+            c.commit();
+            return true;
+
         } catch (SQLException e) {
-            // log per debug
-            System.err.println("JdbcPrestitoDAO.inserisci() fallita: " + e.getMessage() + " (SQLState: " + e.getSQLState() + ")");
+            System.err.println("JdbcPrestitoDAO.inserisci() fallita: " + e.getMessage() +
+                    " (SQLState: " + e.getSQLState() + ")");
+            if (c != null) {
+                try { c.rollback(); } catch (SQLException ex) { /* ignore */ }
+            }
             return false;
+        } finally {
+            if (c != null) {
+                try {
+                    c.setAutoCommit(previousAutoCommit);
+                    c.close();
+                } catch (SQLException ignored) { }
+            }
         }
     }
 
@@ -221,11 +233,11 @@ public class JdbcPrestitoDAO implements PrestitoDAO {
         }
     }
 
-    private static Map<String, ColInfo> getColumnsMeta(Connection c, String tableName) throws SQLException {
+    private static Map<String, ColInfo> getColumnsMeta(Connection c) throws SQLException {
         Map<String, ColInfo> map = new HashMap<>();
         DatabaseMetaData md = c.getMetaData();
 
-        try (ResultSet rs = md.getColumns(null, null, tableName, null)) {
+        try (ResultSet rs = md.getColumns(null, null, "prestiti", null)) {
             while (rs.next()) {
                 String name = rs.getString("COLUMN_NAME");
                 int nullable = rs.getInt("NULLABLE");
@@ -236,7 +248,7 @@ public class JdbcPrestitoDAO implements PrestitoDAO {
             }
         }
         if (map.isEmpty()) {
-            try (ResultSet rs = md.getColumns(null, null, tableName.toUpperCase(), null)) {
+            try (ResultSet rs = md.getColumns(null, null, "prestiti".toUpperCase(), null)) {
                 while (rs.next()) {
                     String name = rs.getString("COLUMN_NAME");
                     int nullable = rs.getInt("NULLABLE");

@@ -50,7 +50,6 @@ public class AddEditUserDialog extends Dialog<UtenteBean> {
         ButtonType okType = new ButtonType(existing == null ? "Crea" : "Salva", ButtonBar.ButtonData.OK_DONE);
         getDialogPane().getButtonTypes().addAll(okType, ButtonType.CANCEL);
 
-        // Validazione base
         Button okBtn = (Button) getDialogPane().lookupButton(okType);
         okBtn.addEventFilter(javafx.event.ActionEvent.ACTION, ev -> {
             String tesseraStr = txtTessera.getText().trim();
