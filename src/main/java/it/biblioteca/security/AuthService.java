@@ -54,7 +54,6 @@ public final class AuthService {
                     } catch (Exception ignore) {}
                 }
 
-                // set session
                 SessionContext.setRole(role);
                 SessionContext.setAuthenticatedUsername(username);
                 SessionContext.setUserId(utenteId);

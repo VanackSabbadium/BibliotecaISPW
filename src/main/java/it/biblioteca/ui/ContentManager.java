@@ -1,13 +1,17 @@
 package it.biblioteca.ui;
 
-import it.biblioteca.controller.BookController;
 import it.biblioteca.controller.PrestitoController;
-import it.biblioteca.controller.UtenteController;
 import it.biblioteca.entity.Book;
 import it.biblioteca.entity.Prestito;
 import it.biblioteca.entity.Utente;
 import it.biblioteca.security.AuthService;
 import it.biblioteca.security.SessionContext;
+import it.biblioteca.events.EventBus;
+import it.biblioteca.events.Subscription;
+import it.biblioteca.events.events.BookChanged;
+import it.biblioteca.events.events.PrestitoChanged;
+import it.biblioteca.events.events.UtenteChanged;
+
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
@@ -32,18 +36,22 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import it.biblioteca.ui.facade.UiFacade;
+
 public class ContentManager {
 
     public enum Theme { COLORI, BIANCO_NERO }
+
+    private Subscription subBook;
+    private Subscription subLoan;
+    private Subscription subUser;
 
     private static final String THEME_COLORI_CSS = "/css/theme-color.css";
     private static final String THEME_BW_CSS     = "/css/theme-bw.css";
     private static final String THEME_COLORI_CLASS = "theme-color";
     private static final String THEME_BW_CLASS     = "theme-bw";
 
-    private final BookController bookController;
-    private final PrestitoController prestitoController;
-    private final UtenteController utenteController;
+    private final UiFacade ui;
 
     private BorderPane rootContainer;
     private TabPane tabPane;
@@ -91,13 +99,8 @@ public class ContentManager {
     private ComboBox<String> cmbUserFilter;
     private BorderPane usersRoot;
 
-    public ContentManager(BookController bookController,
-                          PrestitoController prestitoController,
-                          UtenteController utenteController) {
-        this.bookController = bookController;
-        this.prestitoController = prestitoController;
-        this.utenteController = utenteController;
-
+    public ContentManager(UiFacade ui) {
+        this.ui = ui;
         this.catalogData = FXCollections.observableArrayList();
         this.loansData = FXCollections.observableArrayList();
         this.myLoansData = FXCollections.observableArrayList();
@@ -146,6 +149,7 @@ public class ContentManager {
         }
 
         tabPane = new TabPane();
+        subscribeToEvents();
         homeTab = new Tab("Home", buildHomeView());
         homeTab.setClosable(false);
         tabPane.getTabs().add(homeTab);
@@ -159,6 +163,13 @@ public class ContentManager {
         aggiornaPrestiti();
         aggiornaUtenti();
         aggiornaMieiPrestiti();
+    }
+
+    private void subscribeToEvents() {
+        EventBus bus = EventBus.getDefault();
+        subBook = bus.subscribe(BookChanged.class, e -> Platform.runLater(this::aggiornaCatalogoLibri));
+        subLoan = bus.subscribe(PrestitoChanged.class, e -> Platform.runLater(this::aggiornaPrestiti));
+        subUser = bus.subscribe(UtenteChanged.class, e -> Platform.runLater(this::aggiornaUtenti));
     }
 
     private VBox buildLeftSidebar() {
@@ -326,7 +337,7 @@ public class ContentManager {
             Book b = cell.getValue();
             int copies = 0;
             if (b != null) {
-                copies = b.getCopie(); // getCopie() è int
+                copies = b.getCopie();
             }
             return new ReadOnlyObjectWrapper<>(copies);
         });
@@ -338,8 +349,8 @@ public class ContentManager {
             if (b != null) copies = b.getCopie();
             long active = 0L;
             try {
-                if (prestitoController != null && b != null && b.getId() != null) {
-                    List<Prestito> attivi = prestitoController.trovaPrestitiAttivi();
+                if (b != null && b.getId() != null) {
+                    List<Prestito> attivi = ui.listActiveLoans();
                     active = attivi.stream()
                             .filter(p -> p.getLibroId() != null && b.getId().equals(p.getLibroId()))
                             .count();
@@ -368,7 +379,7 @@ public class ContentManager {
             if (!SessionContext.isBibliotecario()) { showError("Operazione consentita solo al Bibliotecario."); return; }
             AddBookDialog dialog = new AddBookDialog();
             dialog.showAndWait().ifPresent(bean -> {
-                boolean ok = bookController.aggiungiLibro(bean);
+                boolean ok = ui.addBook(bean);
                 if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiunto."); }
                 else showError("Impossibile aggiungere il libro.");
             });
@@ -380,7 +391,7 @@ public class ContentManager {
             if (selected == null) { showError("Seleziona un libro da modificare."); return; }
             EditBookDialog dialog = new EditBookDialog(selected);
             dialog.showAndWait().ifPresent(bean -> {
-                boolean ok = bookController.aggiornaLibro(bean);
+                boolean ok = ui.updateBook(bean);
                 if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiornato."); }
                 else showError("Impossibile aggiornare il libro.");
             });
@@ -390,7 +401,7 @@ public class ContentManager {
             if (!SessionContext.isBibliotecario()) { showError("Operazione consentita solo al Bibliotecario."); return; }
             Book selected = catalogTable.getSelectionModel().getSelectedItem();
             if (selected == null) { showError("Seleziona un libro da rimuovere."); return; }
-            boolean ok = bookController.rimuoviLibro(selected.getId());
+            boolean ok = ui.removeBook(selected.getId());
             if (ok) { aggiornaCatalogoLibri(); showInfo("Libro rimosso dal database."); }
             else showError("Impossibile rimuovere il libro. Verifica che non abbia prestiti attivi o prenotazioni.");
         });
@@ -423,7 +434,7 @@ public class ContentManager {
 
     private void aggiornaCatalogoLibri() {
         try {
-            List<Book> libri = bookController.trovaTutti();
+            List<Book> libri = ui.listBooks();
             if (catalogData == null) catalogData = FXCollections.observableArrayList();
             catalogData.setAll(libri);
         } catch (Exception e) {
@@ -493,8 +504,8 @@ public class ContentManager {
         btnAddLoan.setOnAction(e -> {
             if (!SessionContext.isBibliotecario()) { showError("Operazione consentita solo al Bibliotecario."); return; }
 
-            List<Book> tutti = bookController.trovaTutti();
-            Map<Long, Long> attiviPerLibro = prestitoController.trovaPrestitiAttivi().stream()
+            List<Book> tutti = ui.listBooks();
+            Map<Long, Long> attiviPerLibro = ui.listActiveLoans().stream()
                     .filter(p -> p.getLibroId() != null)
                     .collect(Collectors.groupingBy(Prestito::getLibroId, Collectors.counting()));
 
@@ -509,11 +520,11 @@ public class ContentManager {
 
             SelectBookDialog selectBook = new SelectBookDialog(disponibili);
             selectBook.showAndWait().ifPresent(selectedBook -> {
-                SelectUserDialog selectUser = new SelectUserDialog(utenteController, this::aggiornaUtenti);
+                SelectUserDialog selectUser = new SelectUserDialog(ui.users(), this::aggiornaUtenti);
                 selectUser.showAndWait().ifPresent(selectedUser -> {
                     PrestitoDialog dlg = new PrestitoDialog(selectedBook, selectedUser);
                     dlg.showAndWait().ifPresent(bean -> {
-                        PrestitoController.Esito esito = prestitoController.registraPrestito(bean);
+                        PrestitoController.Esito esito = ui.registerLoan(bean);
                         switch (esito) {
                             case OK -> {
                                 aggiornaPrestiti();
@@ -533,7 +544,7 @@ public class ContentManager {
             if (!SessionContext.isBibliotecario()) { showError("Operazione consentita solo al Bibliotecario."); return; }
             Prestito sel = loansTable.getSelectionModel().getSelectedItem();
             if (sel == null) { showError("Seleziona un prestito da chiudere."); return; }
-            boolean ok = prestitoController.registraRestituzione(sel.getId(), LocalDate.now());
+            boolean ok = ui.registerReturn(sel.getId(), LocalDate.now());
             if (ok) { aggiornaPrestiti(); aggiornaCatalogoLibri(); showInfo("Restituzione registrata."); }
             else showError("Impossibile registrare la restituzione.");
         });
@@ -574,7 +585,7 @@ public class ContentManager {
 
     private void aggiornaPrestiti() {
         try {
-            List<Prestito> prestiti = prestitoController.trovaTutti();
+            List<Prestito> prestiti = ui.listLoans();
             if (loansData == null) loansData = FXCollections.observableArrayList();
             loansData.setAll(prestiti);
             applyLoansPredicate();
@@ -660,7 +671,7 @@ public class ContentManager {
             Integer tess = SessionContext.getTessera();
             Long utenteId = null;
             if (tess != null) {
-                List<Utente> all = utenteController.trovaTutti();
+                List<Utente> all = ui.listUsers();
                 for (Utente u : all) {
                     if (u.getTessera() != null && u.getTessera().equals(tess)) {
                         utenteId = u.getId();
@@ -676,7 +687,7 @@ public class ContentManager {
                 return;
             }
 
-            List<Prestito> all = prestitoController.trovaTutti();
+            List<Prestito> all = ui.listLoans();
             Long finalUtenteId = utenteId;
             List<Prestito> miei = all.stream()
                     .filter(p -> p.getUtenteId() != null && p.getUtenteId().equals(finalUtenteId))
@@ -713,7 +724,7 @@ public class ContentManager {
         Button btnAdd = new Button("Nuovo");
         Button btnEdit = new Button("Modifica");
         Button btnDelete = new Button("Elimina");
-        Button btnCred = new Button("Crea/Modifica credenziali"); // Admin only
+        Button btnCred = new Button("Crea/Modifica credenziali");
 
         txtSearchUsers = new TextField();
         txtSearchUsers.setPromptText("Cerca utenti...");
@@ -759,7 +770,7 @@ public class ContentManager {
                 String username = "";
                 try {
                     if (u != null && u.getId() != null) {
-                        username = utenteController.getUsernameForUserId(u.getId()).orElse("");
+                        username = ui.getUsernameForUserId(u.getId()).orElse("");
                     }
                 } catch (Exception ex) {
                     username = "";
@@ -768,7 +779,6 @@ public class ContentManager {
             });
 
             TableColumn<Utente, String> passwordCol = new TableColumn<>("Password");
-
             passwordCol.setCellValueFactory(cell -> new ReadOnlyStringWrapper("*****"));
 
             usersTable.getColumns().addAll(usernameCol, passwordCol);
@@ -784,9 +794,9 @@ public class ContentManager {
 
         btnAdd.setOnAction(e -> {
             if (!SessionContext.isBibliotecario()) { showError("Solo il Bibliotecario può creare utenti."); return; }
-            AddEditUserDialog dlg = new AddEditUserDialog(utenteController, null);
+            AddEditUserDialog dlg = new AddEditUserDialog(ui.users(), null);
             dlg.showAndWait().ifPresent(bean -> {
-                if (utenteController.aggiungi(bean)) {
+                if (ui.addUser(bean)) {
                     aggiornaUtenti();
                     showInfo("Utente aggiunto.");
                 } else {
@@ -799,10 +809,10 @@ public class ContentManager {
             Utente sel = usersTable.getSelectionModel().getSelectedItem();
             if (sel == null) { showError("Seleziona un utente da modificare."); return; }
             if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("Non autorizzato."); return; }
-            AddEditUserDialog dlg = new AddEditUserDialog(utenteController, sel);
+            AddEditUserDialog dlg = new AddEditUserDialog(ui.users(), sel);
             dlg.showAndWait().ifPresent(bean -> {
                 bean.setId(sel.getId());
-                if (utenteController.aggiorna(bean)) {
+                if (ui.updateUser(bean)) {
                     aggiornaUtenti();
                     showInfo("Utente aggiornato.");
                 } else {
@@ -815,7 +825,7 @@ public class ContentManager {
             Utente sel = usersTable.getSelectionModel().getSelectedItem();
             if (sel == null) { showError("Seleziona un utente da eliminare."); return; }
             if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("Non autorizzato."); return; }
-            if (utenteController.elimina(sel.getId())) {
+            if (ui.deleteUser(sel.getId())) {
                 aggiornaUtenti();
                 showInfo("Utente eliminato.");
             } else {
@@ -830,11 +840,11 @@ public class ContentManager {
 
             Optional<String> existing;
             try {
-                existing = utenteController.getUsernameForUserId(sel.getId());
+                existing = ui.getUsernameForUserId(sel.getId());
             } catch (Exception ex) {
                 existing = Optional.empty();
             }
-            final String existingUsername = existing.orElse(""); // FINAL per lambda
+            final String existingUsername = existing.orElse("");
 
             CredentialsDialog dlg = new CredentialsDialog(existingUsername, null);
             Optional<String> finalExisting = existing;
@@ -844,9 +854,9 @@ public class ContentManager {
                 boolean ok;
                 try {
                     if (finalExisting.isPresent() && !existingUsername.isBlank()) {
-                        ok = utenteController.aggiornaCredenziali(sel.getId(), username, password);
+                        ok = ui.updateCredentials(sel.getId(), username, password);
                     } else {
-                        ok = utenteController.creaCredenziali(sel.getId(), username, password);
+                        ok = ui.createCredentials(sel.getId(), username, password);
                     }
                     if (ok) {
                         aggiornaUtenti();
@@ -899,7 +909,7 @@ public class ContentManager {
 
     private void aggiornaUtenti() {
         try {
-            List<Utente> utenti = utenteController.trovaTutti();
+            List<Utente> utenti = ui.listUsers();
             if (usersData == null) usersData = FXCollections.observableArrayList();
             usersData.setAll(utenti);
             applyUsersPredicate();
@@ -922,12 +932,11 @@ public class ContentManager {
         }
         if (!tabPane.getTabs().contains(profileTab)) tabPane.getTabs().add(profileTab);
 
-        // Carica ed inserisci i dati del profilo
         BorderPane p = (BorderPane) profileTab.getContent();
         Integer tess = SessionContext.getTessera();
         Utente ut = null;
         if (tess != null) {
-            List<Utente> all = utenteController.trovaTutti();
+            List<Utente> all = ui.listUsers();
             for (Utente u : all) {
                 if (u.getTessera() != null && u.getTessera().equals(tess)) { ut = u; break; }
             }

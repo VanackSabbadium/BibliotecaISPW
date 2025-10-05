@@ -20,12 +20,6 @@ public final class DatabaseConfig {
         return "jdbc:mariadb://" + DEFAULT_HOST + ":" + DEFAULT_PORT + "/" + DEFAULT_DATABASE;
     }
 
-    /**
-     * Imposta le credenziali "correnti" (utili se vuoi che i DAO usino user/pass specifici).
-     * Nelle nostre scelte, non useremo le credenziali dell'utente applicazione per i DAO:
-     * dopo il login dell'utente applicativo dobbiamo chiamare applyServiceCredentials()
-     * per far usare ai DAO l'account di servizio.
-     */
     public static void apply(StartupResult res) {
         if (res == null) return;
         username = res.getUsername();
@@ -44,8 +38,6 @@ public final class DatabaseConfig {
         return DriverManager.getConnection(buildJdbcUrl(), username, password);
     }
 
-    // Metodi di utilità per testare credenziali: lascio così per compatibilità, ma non usiamo più
-    // testCredentials(user,pass) per l'autenticazione applicativa.
     public static boolean testCredentials(String user, String pass) {
         try (Connection ignored = DriverManager.getConnection(buildJdbcUrl(), user, pass)) {
             return true;
