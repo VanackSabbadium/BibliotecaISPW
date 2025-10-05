@@ -51,6 +51,11 @@ public class ContentManager {
     private static final String THEME_COLORI_CLASS = "theme-color";
     private static final String THEME_BW_CLASS     = "theme-bw";
     private static final String RICERCA = "Ricerca:";
+    private static final String TOOLBAR = "toolbar";
+    private static final String OP_BIBLIOTECARIO = "Operazione consentita solo al Bibliotecario.";
+    private static final String ATTIVI = "Attivi";
+    private static final String TUTTI = "Tutti";
+    private static final String FILTRO = "Filtro:";
 
     private final UiFacade ui;
 
@@ -313,7 +318,7 @@ public class ContentManager {
         txtSearchCatalog.setPromptText("Cerca nel catalogo...");
         HBox toolbar = new HBox(10, btnAddBook, btnEditBook, btnRemoveBook, new Label(RICERCA), txtSearchCatalog);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
-        toolbar.getStyleClass().add("toolbar");
+        toolbar.getStyleClass().add(TOOLBAR);
 
         catalogTable = new TableView<>();
         catalogTable.setPlaceholder(new Label("Nessun libro da mostrare"));
@@ -377,7 +382,7 @@ public class ContentManager {
         });
 
         btnAddBook.setOnAction(e -> {
-            if (!SessionContext.isBibliotecario()) { showError("Operazione consentita solo al Bibliotecario."); return; }
+            if (!SessionContext.isBibliotecario()) { showError(OP_BIBLIOTECARIO); return; }
             AddBookDialog dialog = new AddBookDialog();
             dialog.showAndWait().ifPresent(bean -> {
                 boolean ok = ui.addBook(bean);
@@ -387,7 +392,7 @@ public class ContentManager {
         });
 
         btnEditBook.setOnAction(e -> {
-            if (!SessionContext.isBibliotecario()) { showError("Operazione consentita solo al Bibliotecario."); return; }
+            if (!SessionContext.isBibliotecario()) { showError(OP_BIBLIOTECARIO); return; }
             Book selected = catalogTable.getSelectionModel().getSelectedItem();
             if (selected == null) { showError("Seleziona un libro da modificare."); return; }
             EditBookDialog dialog = new EditBookDialog(selected);
@@ -399,7 +404,7 @@ public class ContentManager {
         });
 
         btnRemoveBook.setOnAction(e -> {
-            if (!SessionContext.isBibliotecario()) { showError("Operazione consentita solo al Bibliotecario."); return; }
+            if (!SessionContext.isBibliotecario()) { showError(OP_BIBLIOTECARIO); return; }
             Book selected = catalogTable.getSelectionModel().getSelectedItem();
             if (selected == null) { showError("Seleziona un libro da rimuovere."); return; }
             boolean ok = ui.removeBook(selected.getId());
@@ -467,16 +472,16 @@ public class ContentManager {
         Button btnReturn = new Button("Registra Restituzione");
         Button btnRefresh = new Button("Aggiorna");
         cmbLoanFilter = new ComboBox<>();
-        cmbLoanFilter.getItems().addAll("Tutti", "Attivi", "Non attivi");
-        cmbLoanFilter.getSelectionModel().select("Tutti");
+        cmbLoanFilter.getItems().addAll(TUTTI, ATTIVI, "Non attivi");
+        cmbLoanFilter.getSelectionModel().select(TUTTI);
         txtSearchLoans = new TextField();
         txtSearchLoans.setPromptText("Cerca nei prestiti...");
 
         HBox toolbar = new HBox(10, btnAddLoan, btnReturn, btnRefresh,
-                new Label("Filtro:"), cmbLoanFilter,
+                new Label(FILTRO), cmbLoanFilter,
                 new Label(RICERCA), txtSearchLoans);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
-        toolbar.getStyleClass().add("toolbar");
+        toolbar.getStyleClass().add(TOOLBAR);
 
         loansTable = new TableView<>();
         loansTable.setPlaceholder(new Label("Nessun prestito da mostrare"));
@@ -503,7 +508,7 @@ public class ContentManager {
         txtSearchLoans.textProperty().addListener((obs, o, v) -> applyLoansPredicate());
 
         btnAddLoan.setOnAction(e -> {
-            if (!SessionContext.isBibliotecario()) { showError("Operazione consentita solo al Bibliotecario."); return; }
+            if (!SessionContext.isBibliotecario()) { showError(OP_BIBLIOTECARIO); return; }
 
             List<Book> tutti = ui.listBooks();
             Map<Long, Long> attiviPerLibro = ui.listActiveLoans().stream()
@@ -542,7 +547,7 @@ public class ContentManager {
         });
 
         btnReturn.setOnAction(e -> {
-            if (!SessionContext.isBibliotecario()) { showError("Operazione consentita solo al Bibliotecario."); return; }
+            if (!SessionContext.isBibliotecario()) { showError(OP_BIBLIOTECARIO); return; }
             Prestito sel = loansTable.getSelectionModel().getSelectedItem();
             if (sel == null) { showError("Seleziona un prestito da chiudere."); return; }
             boolean ok = ui.registerReturn(sel.getId(), LocalDate.now());
@@ -562,13 +567,13 @@ public class ContentManager {
 
     private void applyLoansPredicate() {
         if (loansFiltered == null) return;
-        String filter = cmbLoanFilter != null ? cmbLoanFilter.getSelectionModel().getSelectedItem() : "Tutti";
+        String filter = cmbLoanFilter != null ? cmbLoanFilter.getSelectionModel().getSelectedItem() : TUTTI;
         String q = (txtSearchLoans != null && txtSearchLoans.getText() != null) ? txtSearchLoans.getText().trim().toLowerCase() : "";
 
         loansFiltered.setPredicate(p -> {
             boolean isActive = p.getDataRestituzione() == null;
-            boolean passFilter = "Tutti".equals(filter) ||
-                    ("Attivi".equals(filter) && isActive) ||
+            boolean passFilter = TUTTI.equals(filter) ||
+                    (ATTIVI.equals(filter) && isActive) ||
                     ("Non attivi".equals(filter) && !isActive);
             if (!passFilter) return false;
 
@@ -607,14 +612,14 @@ public class ContentManager {
 
         Button btnRefresh = new Button("Aggiorna");
         cmbMyLoanFilter = new ComboBox<>();
-        cmbMyLoanFilter.getItems().addAll("Tutti", "In corso", "Conclusi");
-        cmbMyLoanFilter.getSelectionModel().select("Tutti");
+        cmbMyLoanFilter.getItems().addAll(TUTTI, "In corso", "Conclusi");
+        cmbMyLoanFilter.getSelectionModel().select(TUTTI);
         txtSearchMyLoans = new TextField();
         txtSearchMyLoans.setPromptText("Cerca nei miei prestiti...");
 
-        HBox toolbar = new HBox(10, btnRefresh, new Label("Filtro:"), cmbMyLoanFilter, new Label(RICERCA), txtSearchMyLoans);
+        HBox toolbar = new HBox(10, btnRefresh, new Label(FILTRO), cmbMyLoanFilter, new Label(RICERCA), txtSearchMyLoans);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
-        toolbar.getStyleClass().add("toolbar");
+        toolbar.getStyleClass().add(TOOLBAR);
 
         myLoansTable = new TableView<>();
         myLoansTable.setPlaceholder(new Label("Nessun prestito da mostrare"));
@@ -646,12 +651,12 @@ public class ContentManager {
 
     private void applyMyLoansPredicate() {
         if (myLoansFiltered == null) return;
-        String filter = cmbMyLoanFilter != null ? cmbMyLoanFilter.getSelectionModel().getSelectedItem() : "Tutti";
+        String filter = cmbMyLoanFilter != null ? cmbMyLoanFilter.getSelectionModel().getSelectedItem() : TUTTI;
         String q = (txtSearchMyLoans != null && txtSearchMyLoans.getText() != null) ? txtSearchMyLoans.getText().trim().toLowerCase() : "";
 
         myLoansFiltered.setPredicate(p -> {
             boolean isActive = p.getDataRestituzione() == null;
-            boolean passFilter = "Tutti".equals(filter) ||
+            boolean passFilter = TUTTI.equals(filter) ||
                     ("In corso".equals(filter) && isActive) ||
                     ("Conclusi".equals(filter) && !isActive);
             if (!passFilter) return false;
@@ -730,12 +735,12 @@ public class ContentManager {
         txtSearchUsers = new TextField();
         txtSearchUsers.setPromptText("Cerca utenti...");
         cmbUserFilter = new ComboBox<>();
-        cmbUserFilter.getItems().addAll("Tutti", "Attivi", "Inattivi");
-        cmbUserFilter.getSelectionModel().select("Tutti");
+        cmbUserFilter.getItems().addAll(TUTTI, ATTIVI, "Inattivi");
+        cmbUserFilter.getSelectionModel().select(TUTTI);
 
-        HBox toolbar = new HBox(10, btnAdd, btnEdit, btnDelete, btnCred, new Label("Filtro:"), cmbUserFilter, new Label(RICERCA), txtSearchUsers);
+        HBox toolbar = new HBox(10, btnAdd, btnEdit, btnDelete, btnCred, new Label(FILTRO), cmbUserFilter, new Label(RICERCA), txtSearchUsers);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
-        toolbar.getStyleClass().add("toolbar");
+        toolbar.getStyleClass().add(TOOLBAR);
         usersRoot.setTop(toolbar);
 
         usersTable = new TableView<>();
@@ -877,7 +882,7 @@ public class ContentManager {
     private void applyUsersPredicate() {
         if (usersFiltered == null) return;
         String stato = (cmbUserFilter != null && cmbUserFilter.getSelectionModel().getSelectedItem() != null)
-                ? cmbUserFilter.getSelectionModel().getSelectedItem() : "Tutti";
+                ? cmbUserFilter.getSelectionModel().getSelectedItem() : TUTTI;
         String q = (txtSearchUsers != null && txtSearchUsers.getText() != null)
                 ? txtSearchUsers.getText().trim().toLowerCase() : "";
         usersFiltered.setPredicate(makeUserPredicate(q, stato));
@@ -886,8 +891,8 @@ public class ContentManager {
     private java.util.function.Predicate<Utente> makeUserPredicate(String q, String statoFilter) {
         return u -> {
             boolean attivo = u.getDataScadenza() == null || !u.getDataScadenza().isBefore(LocalDate.now());
-            boolean statoOk = "Tutti".equals(statoFilter) ||
-                    ("Attivi".equals(statoFilter) && attivo) ||
+            boolean statoOk = TUTTI.equals(statoFilter) ||
+                    (ATTIVI.equals(statoFilter) && attivo) ||
                     ("Inattivi".equals(statoFilter) && !attivo);
             if (!statoOk) return false;
 
