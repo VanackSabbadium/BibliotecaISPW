@@ -12,7 +12,8 @@ public class Book {
     private boolean attivo = true;
     private int copie = 1;
 
-    public Book() {}
+    public Book() { // Constructor (non fa nulla)
+        }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

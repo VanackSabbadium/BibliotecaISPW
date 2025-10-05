@@ -15,7 +15,8 @@ public class Utente {
     private String username;
     private String password;
 
-    public Utente() {}
+    public Utente() { // Constructor (non fa nulla)
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

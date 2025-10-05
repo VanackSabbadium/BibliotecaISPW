@@ -12,7 +12,8 @@ public class Prestito {
 
     private String libroTitoloSnapshot;
 
-    public Prestito() {}
+    public Prestito() { // Constructor (non fa nulla)
+        }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

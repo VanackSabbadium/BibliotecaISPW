@@ -50,6 +50,7 @@ public class ContentManager {
     private static final String THEME_BW_CSS     = "/css/theme-bw.css";
     private static final String THEME_COLORI_CLASS = "theme-color";
     private static final String THEME_BW_CLASS     = "theme-bw";
+    private static final String RICERCA = "Ricerca:";
 
     private final UiFacade ui;
 
@@ -310,7 +311,7 @@ public class ContentManager {
         btnRemoveBook = new Button("Rimuovi Libro");
         txtSearchCatalog = new TextField();
         txtSearchCatalog.setPromptText("Cerca nel catalogo...");
-        HBox toolbar = new HBox(10, btnAddBook, btnEditBook, btnRemoveBook, new Label("Ricerca:"), txtSearchCatalog);
+        HBox toolbar = new HBox(10, btnAddBook, btnEditBook, btnRemoveBook, new Label(RICERCA), txtSearchCatalog);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
         toolbar.getStyleClass().add("toolbar");
 
@@ -473,7 +474,7 @@ public class ContentManager {
 
         HBox toolbar = new HBox(10, btnAddLoan, btnReturn, btnRefresh,
                 new Label("Filtro:"), cmbLoanFilter,
-                new Label("Ricerca:"), txtSearchLoans);
+                new Label(RICERCA), txtSearchLoans);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
         toolbar.getStyleClass().add("toolbar");
 
@@ -611,7 +612,7 @@ public class ContentManager {
         txtSearchMyLoans = new TextField();
         txtSearchMyLoans.setPromptText("Cerca nei miei prestiti...");
 
-        HBox toolbar = new HBox(10, btnRefresh, new Label("Filtro:"), cmbMyLoanFilter, new Label("Ricerca:"), txtSearchMyLoans);
+        HBox toolbar = new HBox(10, btnRefresh, new Label("Filtro:"), cmbMyLoanFilter, new Label(RICERCA), txtSearchMyLoans);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
         toolbar.getStyleClass().add("toolbar");
 
@@ -732,7 +733,7 @@ public class ContentManager {
         cmbUserFilter.getItems().addAll("Tutti", "Attivi", "Inattivi");
         cmbUserFilter.getSelectionModel().select("Tutti");
 
-        HBox toolbar = new HBox(10, btnAdd, btnEdit, btnDelete, btnCred, new Label("Filtro:"), cmbUserFilter, new Label("Ricerca:"), txtSearchUsers);
+        HBox toolbar = new HBox(10, btnAdd, btnEdit, btnDelete, btnCred, new Label("Filtro:"), cmbUserFilter, new Label(RICERCA), txtSearchUsers);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
         toolbar.getStyleClass().add("toolbar");
         usersRoot.setTop(toolbar);
