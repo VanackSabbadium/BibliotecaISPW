@@ -800,7 +800,7 @@ public class ContentManager {
 
         btnAdd.setOnAction(e -> {
             if (!SessionContext.isBibliotecario()) { showError("Solo il Bibliotecario può creare utenti."); return; }
-            AddEditUserDialog dlg = new AddEditUserDialog(ui.users(), null);
+            AddEditUserDialog dlg = new AddEditUserDialog(null);
             dlg.showAndWait().ifPresent(bean -> {
                 if (ui.addUser(bean)) {
                     aggiornaUtenti();
@@ -815,7 +815,7 @@ public class ContentManager {
             Utente sel = usersTable.getSelectionModel().getSelectedItem();
             if (sel == null) { showError("Seleziona un utente da modificare."); return; }
             if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("Non autorizzato."); return; }
-            AddEditUserDialog dlg = new AddEditUserDialog(ui.users(), sel);
+            AddEditUserDialog dlg = new AddEditUserDialog(sel);
             dlg.showAndWait().ifPresent(bean -> {
                 bean.setId(sel.getId());
                 if (ui.updateUser(bean)) {

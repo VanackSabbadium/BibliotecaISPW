@@ -31,7 +31,7 @@ public class SelectUserDialog extends Dialog<Utente> {
 
         Button btnNuovo = new Button("Nuovo Utente");
         btnNuovo.setOnAction(e -> {
-            AddEditUserDialog dlg = new AddEditUserDialog(utenteController, null);
+            AddEditUserDialog dlg = new AddEditUserDialog(null);
             dlg.showAndWait().ifPresent(bean -> {
                 if (utenteController.aggiungi(bean)) {
                     table.getItems().setAll(utenteController.trovaAttivi());
