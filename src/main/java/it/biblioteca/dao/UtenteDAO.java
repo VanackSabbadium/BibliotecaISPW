@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface UtenteDAO {
-    List<Utente> trovaTutti() throws Exception;
+    List<Utente> trovaTutti();
     Utente trovaPerId(Long id) throws Exception;
     boolean aggiungi(Utente u) throws Exception;
     boolean aggiorna(Utente u) throws Exception;
