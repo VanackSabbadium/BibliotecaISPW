@@ -21,17 +21,14 @@ import javafx.collections.transformation.FilteredList;
 import javafx.collections.transformation.SortedList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
-import java.net.URL;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -386,35 +383,50 @@ public class ContentManager {
 
     private void attachCatalogActions() {
         btnAddBook.setOnAction(e -> {
-            if (!SessionContext.isBibliotecario()) { showError(OP_BIBLIOTECARIO); return; }
+            if (!ensureBibliotecario()) return;
             AddBookDialog dialog = new AddBookDialog();
-            dialog.showAndWait().ifPresent(bean -> {
-                boolean ok = ui.addBook(bean);
-                if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiunto."); }
-                else showError("Impossibile aggiungere il libro.");
-            });
+            dialog.showAndWait().ifPresent(this::processBookAdd);
         });
 
         btnEditBook.setOnAction(e -> {
-            if (!SessionContext.isBibliotecario()) { showError(OP_BIBLIOTECARIO); return; }
-            Book selected = catalogTable.getSelectionModel().getSelectedItem();
-            if (selected == null) { showError("Seleziona un libro da modificare."); return; }
+            if (!ensureBibliotecario()) return;
+            Book selected = requireSelectedBook("Seleziona un libro da modificare.");
+            if (selected == null) return;
             EditBookDialog dialog = new EditBookDialog(selected);
-            dialog.showAndWait().ifPresent(bean -> {
-                boolean ok = ui.updateBook(bean);
-                if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiornato."); }
-                else showError("Impossibile aggiornare il libro.");
-            });
+            dialog.showAndWait().ifPresent(this::processBookUpdate);
         });
 
         btnRemoveBook.setOnAction(e -> {
-            if (!SessionContext.isBibliotecario()) { showError(OP_BIBLIOTECARIO); return; }
-            Book selected = catalogTable.getSelectionModel().getSelectedItem();
-            if (selected == null) { showError("Seleziona un libro da rimuovere."); return; }
+            if (!ensureBibliotecario()) return;
+            Book selected = requireSelectedBook("Seleziona un libro da rimuovere.");
+            if (selected == null) return;
             boolean ok = ui.removeBook(selected.getId());
             if (ok) { aggiornaCatalogoLibri(); showInfo("Libro rimosso dal database."); }
             else showError("Impossibile rimuovere il libro. Verifica che non abbia prestiti attivi o prenotazioni.");
         });
+    }
+
+    private boolean ensureBibliotecario() {
+        if (!SessionContext.isBibliotecario()) { showError(OP_BIBLIOTECARIO); return false; }
+        return true;
+    }
+
+    private Book requireSelectedBook(String msg) {
+        Book s = catalogTable.getSelectionModel().getSelectedItem();
+        if (s == null) showError(msg);
+        return s;
+    }
+
+    private void processBookAdd(it.biblioteca.bean.BookBean bean) {
+        boolean ok = ui.addBook(bean);
+        if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiunto."); }
+        else showError("Impossibile aggiungere il libro.");
+    }
+
+    private void processBookUpdate(it.biblioteca.bean.BookBean bean) {
+        boolean ok = ui.updateBook(bean);
+        if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiornato."); }
+        else showError("Impossibile aggiornare il libro.");
     }
 
     private int copiesOf(Book b) {
@@ -540,49 +552,63 @@ public class ContentManager {
     }
 
     private void setupLoanButtons(Button btnAddLoan, Button btnReturn, Button btnRefresh) {
-        btnAddLoan.setOnAction(e -> {
-            if (!SessionContext.isBibliotecario()) { showError(OP_BIBLIOTECARIO); return; }
-            List<Book> tutti = ui.listBooks();
-            Map<Long, Long> attiviPerLibro = ui.listActiveLoans().stream()
-                    .filter(p -> p.getLibroId() != null)
-                    .collect(Collectors.groupingBy(Prestito::getLibroId, Collectors.counting()));
-
-            List<Book> disponibili = tutti.stream()
-                    .filter(b -> b.getId() != null && attiviPerLibro.getOrDefault(b.getId(), 0L) < b.getCopie())
-                    .collect(Collectors.toList());
-
-            if (disponibili.isEmpty()) { showError("Nessun libro disponibile (tutte le copie sono in prestito)."); return; }
-
-            SelectBookDialog selectBook = new SelectBookDialog(disponibili);
-            selectBook.showAndWait().ifPresent(selectedBook -> {
-                SelectUserDialog selectUser = new SelectUserDialog(ui.users(), this::aggiornaUtenti);
-                selectUser.showAndWait().ifPresent(selectedUser -> {
-                    PrestitoDialog dlg = new PrestitoDialog(selectedBook, selectedUser);
-                    dlg.showAndWait().ifPresent(bean -> {
-                        PrestitoController.Esito esito = ui.registerLoan(bean);
-                        if (esito == PrestitoController.Esito.OK) {
-                            aggiornaPrestiti(); aggiornaCatalogoLibri(); showInfo("Prestito registrato con successo.");
-                            tabPane.getSelectionModel().select(loansTab);
-                        } else if (esito == PrestitoController.Esito.UTENTE_INATTIVO) {
-                            showError("Impossibile registrare il prestito: utente non attivo.");
-                        } else {
-                            showError("Impossibile registrare il prestito. Verifica il DB.");
-                        }
-                    });
-                });
-            });
-        });
-
-        btnReturn.setOnAction(e -> {
-            if (!SessionContext.isBibliotecario()) { showError(OP_BIBLIOTECARIO); return; }
-            Prestito sel = loansTable.getSelectionModel().getSelectedItem();
-            if (sel == null) { showError("Seleziona un prestito da chiudere."); return; }
-            boolean ok = ui.registerReturn(sel.getId(), LocalDate.now());
-            if (ok) { aggiornaPrestiti(); aggiornaCatalogoLibri(); showInfo("Restituzione registrata."); }
-            else showError("Impossibile registrare la restituzione.");
-        });
-
+        btnAddLoan.setOnAction(e -> handleAddLoan());
+        btnReturn.setOnAction(e -> handleReturnLoan());
         btnRefresh.setOnAction(e -> aggiornaPrestiti());
+    }
+
+    private void handleAddLoan() {
+        if (!ensureBibliotecario()) return;
+        List<Book> disponibili = libriDisponibili();
+        if (disponibili.isEmpty()) { showError("Nessun libro disponibile (tutte le copie sono in prestito)."); return; }
+        chooseBook(disponibili).ifPresent(b ->
+                chooseUser().ifPresent(u -> confirmPrestito(b, u)));
+    }
+
+    private void handleReturnLoan() {
+        if (!ensureBibliotecario()) return;
+        Prestito sel = loansTable.getSelectionModel().getSelectedItem();
+        if (sel == null) { showError("Seleziona un prestito da chiudere."); return; }
+        boolean ok = ui.registerReturn(sel.getId(), java.time.LocalDate.now());
+        if (ok) { aggiornaPrestiti(); aggiornaCatalogoLibri(); showInfo("Restituzione registrata."); }
+        else showError("Impossibile registrare la restituzione.");
+    }
+
+    private List<Book> libriDisponibili() {
+        List<Book> tutti = ui.listBooks();
+        java.util.Map<Long, Long> attivi = ui.listActiveLoans().stream()
+                .filter(p -> p.getLibroId() != null)
+                .collect(java.util.stream.Collectors.groupingBy(Prestito::getLibroId, java.util.stream.Collectors.counting()));
+        return tutti.stream()
+                .filter(b -> b.getId() != null && attivi.getOrDefault(b.getId(), 0L) < b.getCopie())
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    private java.util.Optional<Book> chooseBook(List<Book> disponibili) {
+        SelectBookDialog selectBook = new SelectBookDialog(disponibili);
+        return selectBook.showAndWait();
+    }
+
+    private java.util.Optional<Utente> chooseUser() {
+        SelectUserDialog selectUser = new SelectUserDialog(ui.users(), this::aggiornaUtenti);
+        return selectUser.showAndWait();
+    }
+
+    private void confirmPrestito(Book book, Utente user) {
+        PrestitoDialog dlg = new PrestitoDialog(book, user);
+        dlg.showAndWait().ifPresent(bean -> {
+            PrestitoController.Esito esito = ui.registerLoan(bean);
+            if (esito == PrestitoController.Esito.OK) {
+                aggiornaPrestiti();
+                aggiornaCatalogoLibri();
+                showInfo("Prestito registrato con successo.");
+                tabPane.getSelectionModel().select(loansTab);
+            } else if (esito == PrestitoController.Esito.UTENTE_INATTIVO) {
+                showError("Impossibile registrare il prestito: utente non attivo.");
+            } else {
+                showError("Impossibile registrare il prestito. Verifica il DB.");
+            }
+        });
     }
 
     private void applyLoansPredicate() {
@@ -830,62 +856,73 @@ public class ContentManager {
     }
 
     private void setupUserButtons(Button btnAdd, Button btnEdit, Button btnDelete, Button btnCred) {
-        btnAdd.setOnAction(e -> {
-            if (!SessionContext.isBibliotecario()) { showError("Solo il Bibliotecario può creare utenti."); return; }
-            AddEditUserDialog dlg = new AddEditUserDialog(null);
-            dlg.showAndWait().ifPresent(bean -> {
-                if (ui.addUser(bean)) { aggiornaUtenti(); showInfo("Utente aggiunto."); }
-                else showError("Impossibile aggiungere l'utente (dati non validi o tessera duplicata?).");
-            });
+        btnAdd.setOnAction(e -> handleAddUser());
+        btnEdit.setOnAction(e -> handleEditUser());
+        btnDelete.setOnAction(e -> handleDeleteUser());
+        btnCred.setOnAction(e -> handleCredentials());
+    }
+
+    private void handleAddUser() {
+        if (!SessionContext.isBibliotecario()) { showError("Solo il Bibliotecario può creare utenti."); return; }
+        AddEditUserDialog dlg = new AddEditUserDialog(null);
+        dlg.showAndWait().ifPresent(bean -> {
+            if (ui.addUser(bean)) { aggiornaUtenti(); showInfo("Utente aggiunto."); }
+            else showError("Impossibile aggiungere l'utente (dati non validi o tessera duplicata?).");
         });
+    }
 
-        btnEdit.setOnAction(e -> {
-            Utente sel = usersTable.getSelectionModel().getSelectedItem();
-            if (sel == null) { showError("Seleziona un utente da modificare."); return; }
-            if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("Non autorizzato."); return; }
-            AddEditUserDialog dlg = new AddEditUserDialog(sel);
-            dlg.showAndWait().ifPresent(bean -> {
-                bean.setId(sel.getId());
-                if (ui.updateUser(bean)) { aggiornaUtenti(); showInfo("Utente aggiornato."); }
-                else showError("Impossibile aggiornare l'utente (verifica le date).");
-            });
+    private void handleEditUser() {
+        Utente sel = usersTable.getSelectionModel().getSelectedItem();
+        if (sel == null) { showError("Seleziona un utente da modificare."); return; }
+        if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("Non autorizzato."); return; }
+        AddEditUserDialog dlg = new AddEditUserDialog(sel);
+        dlg.showAndWait().ifPresent(bean -> {
+            bean.setId(sel.getId());
+            if (ui.updateUser(bean)) { aggiornaUtenti(); showInfo("Utente aggiornato."); }
+            else showError("Impossibile aggiornare l'utente (verifica le date).");
         });
+    }
 
-        btnDelete.setOnAction(e -> {
-            Utente sel = usersTable.getSelectionModel().getSelectedItem();
-            if (sel == null) { showError("Seleziona un utente da eliminare."); return; }
-            if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("Non autorizzato."); return; }
-            if (ui.deleteUser(sel.getId())) { aggiornaUtenti(); showInfo("Utente eliminato."); }
-            else showError("Impossibile eliminare l'utente.");
+    private void handleDeleteUser() {
+        Utente sel = usersTable.getSelectionModel().getSelectedItem();
+        if (sel == null) { showError("Seleziona un utente da eliminare."); return; }
+        if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("Non autorizzato."); return; }
+        if (ui.deleteUser(sel.getId())) { aggiornaUtenti(); showInfo("Utente eliminato."); }
+        else showError("Impossibile eliminare l'utente.");
+    }
+
+    private void handleCredentials() {
+        if (!ensureAdmin()) return;
+        Utente sel = usersTable.getSelectionModel().getSelectedItem();
+        if (sel == null) { showError("Seleziona un utente per associare le credenziali."); return; }
+        java.util.Optional<String> existing;
+        try { existing = ui.getUsernameForUserId(sel.getId()); } catch (Exception ex) { existing = java.util.Optional.empty(); }
+        String existingUsername = existing.orElse("");
+        CredentialsDialog dlg = new CredentialsDialog(existingUsername, null);
+        dlg.showAndWait().ifPresent(pair -> {
+            String username = pair.getKey();
+            String password = pair.getValue();
+            boolean ok = saveCredentials(sel.getId(), existingUsername, username, password);
+            if (ok) { aggiornaUtenti(); showInfo("Credenziali salvate."); }
+            else showError("Impossibile salvare credenziali.");
         });
+    }
 
-        btnCred.setOnAction(e -> {
-            if (!SessionContext.isAdmin()) { showError("Solo Admin può gestire le credenziali."); return; }
-            Utente sel = usersTable.getSelectionModel().getSelectedItem();
-            if (sel == null) { showError("Seleziona un utente per associare le credenziali."); return; }
+    private boolean ensureAdmin() {
+        if (!SessionContext.isAdmin()) { showError("Solo Admin può gestire le credenziali."); return false; }
+        return true;
+    }
 
-            Optional<String> existing;
-            try { existing = ui.getUsernameForUserId(sel.getId()); }
-            catch (Exception ex) { existing = Optional.empty(); }
-            final String existingUsername = existing.orElse("");
-
-            CredentialsDialog dlg = new CredentialsDialog(existingUsername, null);
-            Optional<String> finalExisting = existing;
-            dlg.showAndWait().ifPresent(pair -> {
-                String username = pair.getKey();
-                String password = pair.getValue();
-                boolean ok;
-                try {
-                    ok = finalExisting.isPresent() && !existingUsername.isBlank()
-                            ? ui.updateCredentials(sel.getId(), username, password)
-                            : ui.createCredentials(sel.getId(), username, password);
-                    if (ok) { aggiornaUtenti(); showInfo("Credenziali salvate."); }
-                    else showError("Impossibile salvare credenziali.");
-                } catch (Exception ex) {
-                    showError("Errore durante salvataggio credenziali: " + ex.getMessage());
-                }
-            });
-        });
+    private boolean saveCredentials(Long userId, String existingUsername, String username, String password) {
+        try {
+            if (existingUsername != null && !existingUsername.isBlank()) {
+                return ui.updateCredentials(userId, username, password);
+            }
+            return ui.createCredentials(userId, username, password);
+        } catch (Exception ex) {
+            showError("Errore durante salvataggio credenziali: " + ex.getMessage());
+            return false;
+        }
     }
 
     private void applyUsersPredicate() {
@@ -1003,40 +1040,46 @@ public class ContentManager {
 
     private void applyTheme() {
         if (rootContainer == null) return;
+        updateRootStyleClass();
+        javafx.scene.Scene scene = rootContainer.getScene();
+        if (scene != null) applyThemeToScene(scene);
+        else applyThemeWithoutScene();
+    }
 
+    private void updateRootStyleClass() {
         rootContainer.getStyleClass().removeAll(THEME_COLORI_CLASS, THEME_BW_CLASS);
         String themeClass = (currentTheme == Theme.BIANCO_NERO) ? THEME_BW_CLASS : THEME_COLORI_CLASS;
         if (!rootContainer.getStyleClass().contains(themeClass)) {
             rootContainer.getStyleClass().add(themeClass);
         }
+    }
 
-        Scene scene = rootContainer.getScene();
-        if (scene != null) {
-            scene.getStylesheets().removeIf(s -> s.endsWith("theme-color.css") || s.endsWith("theme-bw.css"));
-
-            String cssPath = (currentTheme == Theme.BIANCO_NERO) ? THEME_BW_CSS : THEME_COLORI_CSS;
-            URL url = getClass().getResource(cssPath);
-            if (url != null) {
-                String external = url.toExternalForm();
-                if (!scene.getStylesheets().contains(external)) {
-                    scene.getStylesheets().add(external);
-                }
-            } else {
-                if (currentTheme == Theme.BIANCO_NERO) {
-                    rootContainer.setStyle("-fx-accent: #000000; -fx-focus-color: #000000; -fx-base: #f2f2f2;");
-                } else {
-                    rootContainer.setStyle("-fx-accent: #3f51b5; -fx-focus-color: #3f51b5; -fx-base: #f6f7fb;");
-                }
-            }
+    private void applyThemeToScene(javafx.scene.Scene scene) {
+        scene.getStylesheets().removeIf(s -> s.endsWith("theme-color.css") || s.endsWith("theme-bw.css"));
+        String cssPath = (currentTheme == Theme.BIANCO_NERO) ? THEME_BW_CSS : THEME_COLORI_CSS;
+        java.net.URL url = getClass().getResource(cssPath);
+        if (url != null) {
+            String external = url.toExternalForm();
+            if (!scene.getStylesheets().contains(external)) scene.getStylesheets().add(external);
         } else {
-            String cssPath = (currentTheme == Theme.BIANCO_NERO) ? THEME_BW_CSS : THEME_COLORI_CSS;
-            URL url = getClass().getResource(cssPath);
-            if (url != null) {
-                String external = url.toExternalForm();
-                if (!rootContainer.getStylesheets().contains(external)) {
-                    rootContainer.getStylesheets().add(external);
-                }
-            }
+            applyInlineFallback();
+        }
+    }
+
+    private void applyThemeWithoutScene() {
+        String cssPath = (currentTheme == Theme.BIANCO_NERO) ? THEME_BW_CSS : THEME_COLORI_CSS;
+        java.net.URL url = getClass().getResource(cssPath);
+        if (url != null) {
+            String external = url.toExternalForm();
+            if (!rootContainer.getStylesheets().contains(external)) rootContainer.getStylesheets().add(external);
+        }
+    }
+
+    private void applyInlineFallback() {
+        if (currentTheme == Theme.BIANCO_NERO) {
+            rootContainer.setStyle("-fx-accent: #000000; -fx-focus-color: #000000; -fx-base: #f2f2f2;");
+        } else {
+            rootContainer.setStyle("-fx-accent: #3f51b5; -fx-focus-color: #3f51b5; -fx-base: #f6f7fb;");
         }
     }
 
