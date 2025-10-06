@@ -31,7 +31,7 @@ public class JdbcBookDAO extends JdbcSupport implements BookDAO {
             });
             if (id > 0) book.setId(id);
         } catch (SQLException e) {
-            throw new RuntimeException("Errore salvaLibro", e);
+            throw new IllegalArgumentException("Errore salvaLibro", e);
         }
     }
 
@@ -50,7 +50,7 @@ public class JdbcBookDAO extends JdbcSupport implements BookDAO {
                 ps.setLong(7, book.getId());
             });
         } catch (SQLException e) {
-            throw new RuntimeException("Errore aggiornaLibro", e);
+            throw new IllegalArgumentException("Errore aggiornaLibro", e);
         }
     }
 
@@ -60,7 +60,7 @@ public class JdbcBookDAO extends JdbcSupport implements BookDAO {
         try {
             update(sql, ps -> ps.setLong(1, id));
         } catch (SQLException e) {
-            throw new RuntimeException("Errore eliminaLibro", e);
+            throw new IllegalArgumentException("Errore eliminaLibro", e);
         }
     }
 
@@ -70,7 +70,7 @@ public class JdbcBookDAO extends JdbcSupport implements BookDAO {
         try {
             return query(sql, this::map);
         } catch (SQLException e) {
-            throw new RuntimeException("Errore trovaTutti libri", e);
+            throw new IllegalArgumentException("Errore trovaTutti libri", e);
         }
     }
 
