@@ -15,7 +15,6 @@ public class PrestitoBean {
 
     // Date
     private LocalDate dataPrestito;
-    // private LocalDate dataRestituzione;
 
     public PrestitoBean() { // Constructor (non fa nulla)
         }
