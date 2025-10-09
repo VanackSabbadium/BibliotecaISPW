@@ -22,7 +22,7 @@ public class JdbcPrestitoDAO extends JdbcSupport implements PrestitoDAO {
         try {
             return query(sql, this::map);
         } catch (SQLException e) {
-            throw new RuntimeException("Errore trovaTutti prestiti", e);
+            throw new IllegalArgumentException("Errore trovaTutti prestiti", e);
         }
     }
 
@@ -32,7 +32,7 @@ public class JdbcPrestitoDAO extends JdbcSupport implements PrestitoDAO {
         try {
             return query(sql, this::map);
         } catch (SQLException e) {
-            throw new RuntimeException("Errore trovaPrestitiAttivi", e);
+            throw new IllegalArgumentException("Errore trovaPrestitiAttivi", e);
         }
     }
 

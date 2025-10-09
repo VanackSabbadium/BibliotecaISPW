@@ -22,7 +22,7 @@ public class JdbcUtenteDAO extends JdbcSupport implements UtenteDAO {
         try {
             return query(sql, this::map);
         } catch (SQLException e) {
-            throw new RuntimeException("Errore trovaTutti utenti", e);
+            throw new IllegalArgumentException("Errore trovaTutti utenti", e);
         }
     }
 
@@ -32,7 +32,7 @@ public class JdbcUtenteDAO extends JdbcSupport implements UtenteDAO {
         try {
             return queryOne(sql, ps -> ps.setLong(1, id), this::map);
         } catch (SQLException e) {
-            throw new RuntimeException("Errore trovaPerId utente", e);
+            throw new IllegalArgumentException("Errore trovaPerId utente", e);
         }
     }
 
@@ -54,7 +54,7 @@ public class JdbcUtenteDAO extends JdbcSupport implements UtenteDAO {
             if (id > 0) u.setId(id);
             return id > 0;
         } catch (SQLException e) {
-            throw new RuntimeException("Errore aggiungi utente", e);
+            throw new IllegalArgumentException("Errore aggiungi utente", e);
         }
     }
 
@@ -75,7 +75,7 @@ public class JdbcUtenteDAO extends JdbcSupport implements UtenteDAO {
                 ps.setLong(8, u.getId());
             }) > 0;
         } catch (SQLException e) {
-            throw new RuntimeException("Errore aggiorna utente", e);
+            throw new IllegalArgumentException("Errore aggiorna utente", e);
         }
     }
 
@@ -85,7 +85,7 @@ public class JdbcUtenteDAO extends JdbcSupport implements UtenteDAO {
         try {
             return update(sql, ps -> ps.setLong(1, id)) > 0;
         } catch (SQLException e) {
-            throw new RuntimeException("Errore elimina utente", e);
+            throw new IllegalArgumentException("Errore elimina utente", e);
         }
     }
 
@@ -99,7 +99,7 @@ public class JdbcUtenteDAO extends JdbcSupport implements UtenteDAO {
                 ps.setString(3, passwordPlain);
             }) > 0;
         } catch (SQLException e) {
-            throw new RuntimeException("Errore creaCredenziali", e);
+            throw new IllegalArgumentException("Errore creaCredenziali", e);
         }
     }
 
@@ -114,7 +114,7 @@ public class JdbcUtenteDAO extends JdbcSupport implements UtenteDAO {
                 ps.setString(3, passwordPlain);
             }) > 0;
         } catch (SQLException e) {
-            throw new RuntimeException("Errore aggiornaCredenziali", e);
+            throw new IllegalArgumentException("Errore aggiornaCredenziali", e);
         }
     }
 
@@ -125,7 +125,7 @@ public class JdbcUtenteDAO extends JdbcSupport implements UtenteDAO {
             String u = queryOne(sql, ps -> ps.setLong(1, utenteId), rs -> rs.getString(1));
             return Optional.ofNullable(u);
         } catch (SQLException e) {
-            throw new RuntimeException("Errore getUsernameForUserId", e);
+            throw new IllegalArgumentException("Errore getUsernameForUserId", e);
         }
     }
 
