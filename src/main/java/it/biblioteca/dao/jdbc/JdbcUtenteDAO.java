@@ -17,83 +17,116 @@ public class JdbcUtenteDAO extends JdbcSupport implements UtenteDAO {
     }
 
     @Override
-    public List<Utente> trovaTutti() throws Exception {
+    public List<Utente> trovaTutti() {
         String sql = "SELECT id,tessera,nome,cognome,email,telefono,data_attivazione,data_scadenza FROM utenti ORDER BY cognome,nome";
-        return query(sql, this::map);
+        try {
+            return query(sql, this::map);
+        } catch (SQLException e) {
+            throw new RuntimeException("Errore trovaTutti utenti", e);
+        }
     }
 
     @Override
-    public Utente trovaPerId(Long id) throws Exception {
+    public Utente trovaPerId(Long id) {
         String sql = "SELECT id,tessera,nome,cognome,email,telefono,data_attivazione,data_scadenza FROM utenti WHERE id=?";
-        return queryOne(sql, ps -> ps.setLong(1, id), this::map);
+        try {
+            return queryOne(sql, ps -> ps.setLong(1, id), this::map);
+        } catch (SQLException e) {
+            throw new RuntimeException("Errore trovaPerId utente", e);
+        }
     }
 
     @Override
-    public boolean aggiungi(Utente u) throws Exception {
+    public boolean aggiungi(Utente u) {
         String sql = "INSERT INTO utenti(tessera,nome,cognome,email,telefono,data_attivazione,data_scadenza) VALUES (?,?,?,?,?,?,?)";
-        long id = insertAndReturnKey(sql, ps -> {
-            ps.setInt(1, u.getTessera());
-            ps.setString(2, u.getNome());
-            ps.setString(3, u.getCognome());
-            ps.setString(4, u.getEmail());
-            ps.setString(5, u.getTelefono());
-            LocalDate da = u.getDataAttivazione();
-            LocalDate ds = u.getDataScadenza();
-            ps.setDate(6, da != null ? Date.valueOf(da) : null);
-            ps.setDate(7, ds != null ? Date.valueOf(ds) : null);
-        });
-        if (id > 0) u.setId(id);
-        return id > 0;
+        try {
+            long id = insertAndReturnKey(sql, ps -> {
+                ps.setInt(1, u.getTessera());
+                ps.setString(2, u.getNome());
+                ps.setString(3, u.getCognome());
+                ps.setString(4, u.getEmail());
+                ps.setString(5, u.getTelefono());
+                LocalDate da = u.getDataAttivazione();
+                LocalDate ds = u.getDataScadenza();
+                ps.setDate(6, da != null ? Date.valueOf(da) : null);
+                ps.setDate(7, ds != null ? Date.valueOf(ds) : null);
+            });
+            if (id > 0) u.setId(id);
+            return id > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException("Errore aggiungi utente", e);
+        }
     }
 
     @Override
-    public boolean aggiorna(Utente u) throws Exception {
+    public boolean aggiorna(Utente u) {
         String sql = "UPDATE utenti SET tessera=?,nome=?,cognome=?,email=?,telefono=?,data_attivazione=?,data_scadenza=? WHERE id=?";
-        return update(sql, ps -> {
-            ps.setInt(1, u.getTessera());
-            ps.setString(2, u.getNome());
-            ps.setString(3, u.getCognome());
-            ps.setString(4, u.getEmail());
-            ps.setString(5, u.getTelefono());
-            LocalDate da = u.getDataAttivazione();
-            LocalDate ds = u.getDataScadenza();
-            ps.setDate(6, da != null ? Date.valueOf(da) : null);
-            ps.setDate(7, ds != null ? Date.valueOf(ds) : null);
-            ps.setLong(8, u.getId());
-        }) > 0;
+        try {
+            return update(sql, ps -> {
+                ps.setInt(1, u.getTessera());
+                ps.setString(2, u.getNome());
+                ps.setString(3, u.getCognome());
+                ps.setString(4, u.getEmail());
+                ps.setString(5, u.getTelefono());
+                LocalDate da = u.getDataAttivazione();
+                LocalDate ds = u.getDataScadenza();
+                ps.setDate(6, da != null ? Date.valueOf(da) : null);
+                ps.setDate(7, ds != null ? Date.valueOf(ds) : null);
+                ps.setLong(8, u.getId());
+            }) > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException("Errore aggiorna utente", e);
+        }
     }
 
     @Override
-    public boolean elimina(Long id) throws Exception {
+    public boolean elimina(Long id) {
         String sql = "DELETE FROM utenti WHERE id=?";
-        return update(sql, ps -> ps.setLong(1, id)) > 0;
+        try {
+            return update(sql, ps -> ps.setLong(1, id)) > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException("Errore elimina utente", e);
+        }
     }
 
     @Override
-    public boolean creaCredenziali(Long utenteId, String username, String passwordPlain) throws Exception {
+    public boolean creaCredenziali(Long utenteId, String username, String passwordPlain) {
         String sql = "INSERT INTO credenziali(utente_id,username,password_hash) VALUES (?,?,SHA2(?,256))";
-        return update(sql, ps -> {
-            ps.setLong(1, utenteId);
-            ps.setString(2, username);
-            ps.setString(3, passwordPlain);
-        }) > 0;
+        try {
+            return update(sql, ps -> {
+                ps.setLong(1, utenteId);
+                ps.setString(2, username);
+                ps.setString(3, passwordPlain);
+            }) > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException("Errore creaCredenziali", e);
+        }
     }
 
     @Override
-    public boolean aggiornaCredenziali(Long utenteId, String username, String passwordPlain) throws Exception {
-        String sql = "INSERT INTO credenziali(utente_id,username,password_hash) VALUES (?,?,SHA2(?,256)) ON DUPLICATE KEY UPDATE username=VALUES(username), password_hash=VALUES(password_hash)";
-        return update(sql, ps -> {
-            ps.setLong(1, utenteId);
-            ps.setString(2, username);
-            ps.setString(3, passwordPlain);
-        }) > 0;
+    public boolean aggiornaCredenziali(Long utenteId, String username, String passwordPlain) {
+        String sql = "INSERT INTO credenziali(utente_id,username,password_hash) VALUES (?,?,SHA2(?,256)) " +
+                "ON DUPLICATE KEY UPDATE username=VALUES(username), password_hash=VALUES(password_hash)";
+        try {
+            return update(sql, ps -> {
+                ps.setLong(1, utenteId);
+                ps.setString(2, username);
+                ps.setString(3, passwordPlain);
+            }) > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException("Errore aggiornaCredenziali", e);
+        }
     }
 
     @Override
-    public Optional<String> getUsernameForUserId(Long utenteId) throws Exception {
+    public Optional<String> getUsernameForUserId(Long utenteId) {
         String sql = "SELECT username FROM credenziali WHERE utente_id=?";
-        String u = queryOne(sql, ps -> ps.setLong(1, utenteId), rs -> rs.getString(1));
-        return Optional.ofNullable(u);
+        try {
+            String u = queryOne(sql, ps -> ps.setLong(1, utenteId), rs -> rs.getString(1));
+            return Optional.ofNullable(u);
+        } catch (SQLException e) {
+            throw new RuntimeException("Errore getUsernameForUserId", e);
+        }
     }
 
     private Utente map(ResultSet rs) throws SQLException {
