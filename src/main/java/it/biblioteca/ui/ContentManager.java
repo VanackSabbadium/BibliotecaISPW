@@ -31,7 +31,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import it.biblioteca.ui.facade.UiFacade;
 
@@ -282,12 +281,6 @@ public class ContentManager {
         }
     }
 
-    private void updateHomeDescription() {
-        if (homeTab != null && homeTab.getContent() instanceof BorderPane) {
-            homeTab.setContent(buildHomeView());
-        }
-    }
-
     public void mostraCatalogoLibri() {
         ensureCatalogTab();
         tabPane.getSelectionModel().select(catalogTab);
@@ -440,7 +433,8 @@ public class ContentManager {
         try {
             List<Prestito> attivi = ui.listActiveLoans();
             active = attivi.stream().filter(p -> p.getLibroId() != null && b.getId().equals(p.getLibroId())).count();
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) { // vuoto
+            }
         return (int) Math.max(0, copies - active);
     }
 
@@ -581,7 +575,7 @@ public class ContentManager {
                 .collect(java.util.stream.Collectors.groupingBy(Prestito::getLibroId, java.util.stream.Collectors.counting()));
         return tutti.stream()
                 .filter(b -> b.getId() != null && attivi.getOrDefault(b.getId(), 0L) < b.getCopie())
-                .collect(java.util.stream.Collectors.toList());
+                .toList();
     }
 
     private java.util.Optional<Book> chooseBook(List<Book> disponibili) {
@@ -743,7 +737,7 @@ public class ContentManager {
             Long finalUtenteId = utenteId;
             List<Prestito> miei = all.stream()
                     .filter(p -> p.getUtenteId() != null && p.getUtenteId().equals(finalUtenteId))
-                    .collect(Collectors.toList());
+                    .toList();
 
             if (myLoansData == null) myLoansData = FXCollections.observableArrayList();
             myLoansData.setAll(miei);
@@ -842,7 +836,8 @@ public class ContentManager {
             Utente u = cell.getValue();
             String username = "";
             try { if (u != null && u.getId() != null) username = ui.getUsernameForUserId(u.getId()).orElse(""); }
-            catch (Exception ignored) {}
+            catch (Exception ignored) { // vuoto
+                }
             return new ReadOnlyStringWrapper(username);
         });
         TableColumn<Utente, String> passwordCol = new TableColumn<>("Password");

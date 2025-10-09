@@ -9,7 +9,6 @@ import it.biblioteca.events.events.UtenteChanged;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 public class UtenteService {
     private final UtenteDAO utenteDAO;
@@ -22,12 +21,12 @@ public class UtenteService {
         try {
             return utenteDAO.trovaTutti();
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new IllegalArgumentException(e);
         }
     }
 
     public List<Utente> findActive() {
-        return findAll().stream().filter(this::isActive).collect(Collectors.toList());
+        return findAll().stream().filter(this::isActive).toList();
     }
 
     public boolean add(UtenteBean bean) {

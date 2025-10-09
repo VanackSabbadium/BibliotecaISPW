@@ -91,6 +91,6 @@ public final class AuthService {
             StringBuilder sb = new StringBuilder();
             for (byte x : b) sb.append(String.format("%02x", x & 0xff));
             return sb.toString();
-        } catch (Exception ex) { throw new RuntimeException(ex); }
+        } catch (Exception ex) { throw new IllegalArgumentException(ex); }
     }
 }
