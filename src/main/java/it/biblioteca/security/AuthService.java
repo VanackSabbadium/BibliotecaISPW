@@ -8,8 +8,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public final class AuthService {
+
+    private static final Logger LOGGER = Logger.getLogger(AuthService.class.getName());
 
     public record AuthResult(boolean ok, String username, SessionContext.AppRole role, Long userId, Integer tessera) {
     }
@@ -30,7 +34,7 @@ public final class AuthService {
 
             return new AuthResult(true, username, role, row.utenteId, tessera);
         } catch (Exception e) {
-            System.err.println("AuthService.authenticate() errore: " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "AuthService.authenticate() errore", e);
             return fail();
         }
     }
@@ -82,7 +86,6 @@ public final class AuthService {
         String storedHash;
         String roleStr;
     }
-
 
     private static String sha256(String input) {
         try {
