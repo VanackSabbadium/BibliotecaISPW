@@ -31,8 +31,8 @@ public class JdbcPrestitoDAO extends JdbcSupport implements PrestitoDAO {
         String sql = "SELECT id,libro_id,utente_id,utente_snapshot,libro_titolo_snapshot,data_prestito,data_restituzione FROM prestiti WHERE data_restituzione IS NULL ORDER BY id DESC";
         try {
             return query(sql, this::map);
-        } catch (SQLException e) {
-            throw new IllegalArgumentException("Errore trovaPrestitiAttivi", e);
+        } catch (SQLException _) {
+            throw new IllegalArgumentException("Errore trovaPrestitiAttivi");
         }
     }
 
