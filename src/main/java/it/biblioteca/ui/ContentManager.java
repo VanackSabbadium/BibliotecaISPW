@@ -825,7 +825,11 @@ public class ContentManager {
             Utente u = cell.getValue();
             LocalDate scad = u.getDataScadenza();
             boolean stato = scad != null && scad.isBefore(LocalDate.now());
-            String s = (u == null) ? "" : (stato ? "Inattivo" : "Attivo");
+            String s;
+            if (u == null) {
+                s = "";
+            }
+                else s = stato ? "Inattivo" : "Attivo";
             return new ReadOnlyStringWrapper(s);
         });
         usersTable.getColumns().setAll(tesseraCol, nomeCol, cognomeCol, emailCol, telCol, attCol, scadCol, statoCol);
