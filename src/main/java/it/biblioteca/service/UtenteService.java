@@ -35,7 +35,7 @@ public class UtenteService {
             boolean ok = utenteDAO.aggiungi(u);
             if (ok) EventBus.getDefault().publish(new UtenteChanged(UtenteChanged.Action.ADDED, u.getId()));
             return ok;
-        } catch (Exception e) {
+        } catch (Exception _) {
             return false;
         }
     }
@@ -46,7 +46,7 @@ public class UtenteService {
             boolean ok = utenteDAO.aggiorna(u);
             if (ok) EventBus.getDefault().publish(new UtenteChanged(UtenteChanged.Action.UPDATED, u.getId()));
             return ok;
-        } catch (Exception e) {
+        } catch (Exception _) {
             return false;
         }
     }
@@ -56,7 +56,7 @@ public class UtenteService {
             boolean ok = utenteDAO.elimina(id);
             if (ok) EventBus.getDefault().publish(new UtenteChanged(UtenteChanged.Action.DELETED, id));
             return ok;
-        } catch (Exception e) {
+        } catch (Exception _) {
             return false;
         }
     }
@@ -66,7 +66,7 @@ public class UtenteService {
             boolean ok = utenteDAO.creaCredenziali(utenteId, username, passwordPlain);
             if (ok) EventBus.getDefault().publish(new UtenteChanged(UtenteChanged.Action.CREDENTIALS_CHANGED, utenteId));
             return ok;
-        } catch (Exception e) {
+        } catch (Exception _) {
             return false;
         }
     }
@@ -76,7 +76,7 @@ public class UtenteService {
             boolean ok = utenteDAO.aggiornaCredenziali(utenteId, username, passwordPlain);
             if (ok) EventBus.getDefault().publish(new UtenteChanged(UtenteChanged.Action.CREDENTIALS_CHANGED, utenteId));
             return ok;
-        } catch (Exception e) {
+        } catch (Exception _) {
             return false;
         }
     }
@@ -84,7 +84,7 @@ public class UtenteService {
     public Optional<String> getUsernameForUserId(Long utenteId) {
         try {
             return utenteDAO.getUsernameForUserId(utenteId);
-        } catch (Exception e) {
+        } catch (Exception _) {
             return Optional.empty();
         }
     }

@@ -433,7 +433,7 @@ public class ContentManager {
         try {
             List<Prestito> attivi = ui.listActiveLoans();
             active = attivi.stream().filter(p -> p.getLibroId() != null && b.getId().equals(p.getLibroId())).count();
-        } catch (Exception ignored) { // vuoto
+        } catch (Exception _) { // vuoto
             }
         return (int) Math.max(0, copies - active);
     }
@@ -842,7 +842,7 @@ public class ContentManager {
             Utente u = cell.getValue();
             String username = "";
             try { if (u != null && u.getId() != null) username = ui.getUsernameForUserId(u.getId()).orElse(""); }
-            catch (Exception ignored) { // vuoto
+            catch (Exception _) { // vuoto
                 }
             return new ReadOnlyStringWrapper(username);
         });
@@ -897,7 +897,7 @@ public class ContentManager {
         Utente sel = usersTable.getSelectionModel().getSelectedItem();
         if (sel == null) { showError("Seleziona un utente per associare le credenziali."); return; }
         java.util.Optional<String> existing;
-        try { existing = ui.getUsernameForUserId(sel.getId()); } catch (Exception ex) { existing = java.util.Optional.empty(); }
+        try { existing = ui.getUsernameForUserId(sel.getId()); } catch (Exception _) { existing = java.util.Optional.empty(); }
         String existingUsername = existing.orElse("");
         CredentialsDialog dlg = new CredentialsDialog(existingUsername, null);
         dlg.showAndWait().ifPresent(pair -> {

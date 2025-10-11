@@ -42,7 +42,7 @@ public class PrestitoService {
             boolean ok = prestitoDAO.inserisci(bean);
             if (ok) EventBus.getDefault().publish(new PrestitoChanged(PrestitoChanged.Action.REGISTERED, null));
             return ok ? PrestitoController.Esito.OK : PrestitoController.Esito.ERRORE_INSERIMENTO;
-        } catch (Exception e) {
+        } catch (Exception _) {
             return PrestitoController.Esito.ERRORE_INSERIMENTO;
         }
     }

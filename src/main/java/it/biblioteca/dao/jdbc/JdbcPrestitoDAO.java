@@ -64,7 +64,7 @@ public class JdbcPrestitoDAO extends JdbcSupport implements PrestitoDAO {
                 ps.setDate(1, Date.valueOf(dataRestituzione != null ? dataRestituzione : LocalDate.now()));
                 ps.setLong(2, prestitoId);
             }) > 0;
-        } catch (SQLException e) {
+        } catch (SQLException _) {
             return false;
         }
     }

@@ -41,7 +41,7 @@ public final class DatabaseConfig {
     public static boolean testCredentials(String user, String pass) {
         try (Connection ignored = DriverManager.getConnection(buildJdbcUrl(), user, pass)) {
             return true;
-        } catch (SQLException e) {
+        } catch (SQLException _) {
             return false;
         }
     }

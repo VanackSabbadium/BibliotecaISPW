@@ -68,7 +68,7 @@ public class AddEditUserDialog extends Dialog<UtenteBean> {
         String tesseraStr = txtTessera.getText().trim();
         if (tesseraStr.isEmpty()) { showError("La tessera è obbligatoria."); return false; }
         try { Integer.parseInt(tesseraStr); }
-        catch (NumberFormatException ex) { showError("La tessera deve essere numerica."); return false; }
+        catch (NumberFormatException _) { showError("La tessera deve essere numerica."); return false; }
         LocalDate att = dpAttivazione.getValue();
         LocalDate scad = dpScadenza.getValue();
         if (att != null && scad != null && scad.isBefore(att)) {

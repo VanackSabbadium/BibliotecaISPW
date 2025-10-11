@@ -25,7 +25,7 @@ public class BookService {
             bookDAO.salvaLibro(b);
             EventBus.getDefault().publish(new BookChanged(BookChanged.Action.ADDED, b.getId()));
             return true;
-        } catch (Exception e) {
+        } catch (Exception _) {
             return false;
         }
     }
@@ -36,7 +36,7 @@ public class BookService {
             bookDAO.aggiornaLibro(b);
             EventBus.getDefault().publish(new BookChanged(BookChanged.Action.UPDATED, b.getId()));
             return true;
-        } catch (Exception e) {
+        } catch (Exception _) {
             return false;
         }
     }
@@ -46,7 +46,7 @@ public class BookService {
             bookDAO.eliminaLibro(id);
             EventBus.getDefault().publish(new BookChanged(BookChanged.Action.REMOVED, id));
             return true;
-        } catch (Exception e) {
+        } catch (Exception _) {
             return false;
         }
     }
