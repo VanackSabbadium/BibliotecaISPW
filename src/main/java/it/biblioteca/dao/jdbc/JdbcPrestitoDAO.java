@@ -31,8 +31,8 @@ public class JdbcPrestitoDAO extends JdbcSupport implements PrestitoDAO {
         String sql = "SELECT id,libro_id,utente_id,utente_snapshot,libro_titolo_snapshot,data_prestito,data_restituzione FROM prestiti WHERE data_restituzione IS NULL ORDER BY id DESC";
         try {
             return query(sql, this::map);
-        } catch (SQLException _) {
-            throw new IllegalArgumentException("Errore trovaPrestitiAttivi");
+        } catch (SQLException e) {
+            throw new IllegalArgumentException("Errore trovaPrestitiAttivi", e);
         }
     }
 
@@ -50,7 +50,7 @@ public class JdbcPrestitoDAO extends JdbcSupport implements PrestitoDAO {
                 ps.setString(5, bean.getLibroTitoloSnapshot());
             });
             return id > 0;
-        } catch (SQLException e) {
+        } catch (SQLException _) {
             return false;
         }
     }
