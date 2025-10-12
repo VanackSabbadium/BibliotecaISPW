@@ -21,23 +21,26 @@ import javafx.collections.transformation.FilteredList;
 import javafx.collections.transformation.SortedList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
+import java.io.File;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
 import it.biblioteca.ui.facade.UiFacade;
-
-// aggiunte per export
-import javafx.stage.FileChooser;
-import java.io.File;
 import it.biblioteca.util.csv.CsvExporter;
+import it.biblioteca.util.csv.CsvImporter;
+import it.biblioteca.prefs.AppPreferences;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 
 public class ContentManager {
 
@@ -81,7 +84,8 @@ public class ContentManager {
     private Button btnAddBook;
     private Button btnEditBook;
     private Button btnRemoveBook;
-    private Button btnExportCatalog; // nuovo
+    private Button btnExportCatalog; // export
+    private Button btnImportCatalog; // import
 
     private TableView<Prestito> loansTable;
     private ObservableList<Prestito> loansData;
@@ -90,7 +94,7 @@ public class ContentManager {
     private TextField txtSearchLoans;
     private ComboBox<String> cmbLoanFilter;
     private BorderPane loansRoot;
-    private Button btnExportLoans; // nuovo
+    private Button btnExportLoans; // export
 
     private TableView<Prestito> myLoansTable;
     private ObservableList<Prestito> myLoansData;
@@ -99,7 +103,7 @@ public class ContentManager {
     private TextField txtSearchMyLoans;
     private ComboBox<String> cmbMyLoanFilter;
     private BorderPane myLoansRoot;
-    private Button btnExportMyLoans; // nuovo
+    private Button btnExportMyLoans; // export
 
     private TableView<Utente> usersTable;
     private ObservableList<Utente> usersData;
@@ -108,7 +112,12 @@ public class ContentManager {
     private TextField txtSearchUsers;
     private ComboBox<String> cmbUserFilter;
     private BorderPane usersRoot;
-    private Button btnExportUsers; // nuovo
+    private Button btnExportUsers; // export
+    private Button btnImportUsers; // import
+
+    // ===== StatusBar =====
+    private HBox statusBar;
+    private Label statusLabel;
 
     public ContentManager(UiFacade ui) {
         this.ui = ui;
@@ -116,6 +125,12 @@ public class ContentManager {
         this.loansData = FXCollections.observableArrayList();
         this.myLoansData = FXCollections.observableArrayList();
         this.usersData = FXCollections.observableArrayList();
+
+        // Carica il tema di default dalle preferenze (verrà aggiornato poi dal login/Startup)
+        try {
+            String th = AppPreferences.loadThemeOrDefault();
+            this.currentTheme = "BIANCO_NERO".equalsIgnoreCase(th) ? Theme.BIANCO_NERO : Theme.COLORI;
+        } catch (Exception ignored) { }
     }
 
     public void inizializzaContenuto(BorderPane root) {
@@ -142,6 +157,8 @@ public class ContentManager {
                 it.biblioteca.db.DatabaseConfig.apply(r);
                 this.currentTheme = r.getTheme();
                 applyTheme();
+                // salva preferenza tema
+                AppPreferences.saveTheme(currentTheme.name());
 
                 AuthService.AuthResult ar = AuthService.authenticate(r.getAppUsername(), r.getAppPassword());
                 if (!ar.ok()) {
@@ -169,11 +186,30 @@ public class ContentManager {
         root.setLeft(leftBar);
 
         root.setCenter(tabPane);
+        buildStatusBar();
+        root.setBottom(statusBar);
+
+        // Ripristina ultima tab (se esiste)
+        restoreLastTab();
+
+        // Dopo che la scene è disponibile: shortcut + stage prefs
+        root.sceneProperty().addListener((obs, oldS, newS) -> {
+            if (newS != null) {
+                registerAccelerators(newS);
+                Platform.runLater(() -> {
+                    if (newS.getWindow() instanceof Stage st) {
+                        AppPreferences.applyStageGeometry(st);
+                    }
+                });
+            }
+        });
 
         aggiornaCatalogoLibri();
         aggiornaPrestiti();
         aggiornaUtenti();
         aggiornaMieiPrestiti();
+
+        setStatus("Pronto.");
     }
 
     private void subscribeToEvents() {
@@ -183,6 +219,7 @@ public class ContentManager {
         subUser = bus.subscribe(UtenteChanged.class, e -> Platform.runLater(this::aggiornaUtenti));
     }
 
+    // ====== Sidebar ======
     private VBox buildLeftSidebar() {
         Button btnHome = new Button("Home");
         btnHome.setMaxWidth(Double.MAX_VALUE);
@@ -230,6 +267,7 @@ public class ContentManager {
         return left;
     }
 
+    // ====== Home ======
     private BorderPane buildHomeView() {
         BorderPane p = new BorderPane();
         p.setPadding(new Insets(20));
@@ -290,10 +328,12 @@ public class ContentManager {
         }
     }
 
+    // ====== Catalogo ======
     public void mostraCatalogoLibri() {
         ensureCatalogTab();
         tabPane.getSelectionModel().select(catalogTab);
         aggiornaCatalogoLibri();
+        setStatus("Catalogo aperto.");
     }
 
     private void ensureCatalogTab() {
@@ -327,10 +367,14 @@ public class ContentManager {
         btnAddBook = new Button("Aggiungi Libro");
         btnEditBook = new Button("Modifica Libro");
         btnRemoveBook = new Button("Rimuovi Libro");
+        btnImportCatalog = new Button("Importa CSV");
         btnExportCatalog = new Button("Esporta CSV");
         txtSearchCatalog = new TextField();
         txtSearchCatalog.setPromptText("Cerca nel catalogo...");
-        HBox toolbar = new HBox(10, btnAddBook, btnEditBook, btnRemoveBook, btnExportCatalog, new Label(RICERCA), txtSearchCatalog);
+        HBox toolbar = new HBox(10,
+                btnAddBook, btnEditBook, btnRemoveBook,
+                btnImportCatalog, btnExportCatalog,
+                new Label(RICERCA), txtSearchCatalog);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
         toolbar.getStyleClass().add(TOOLBAR);
         return toolbar;
@@ -381,7 +425,11 @@ public class ContentManager {
         txtSearchCatalog.textProperty().addListener((obs, o, val) -> {
             String q = val == null ? "" : val.trim().toLowerCase();
             catalogFiltered.setPredicate(makeBookPredicate(q));
+            setStatus(q.isBlank() ? "Filtro catalogo rimosso." : "Filtro catalogo: \"" + q + "\"");
         });
+
+        // Salva ultima tab corrente
+        tabPane.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> saveCurrentTabPreference(n));
     }
 
     private void attachCatalogActions() {
@@ -404,15 +452,24 @@ public class ContentManager {
             Book selected = requireSelectedBook("Seleziona un libro da rimuovere.");
             if (selected == null) return;
             boolean ok = ui.removeBook(selected.getId());
-            if (ok) { aggiornaCatalogoLibri(); showInfo("Libro rimosso dal database."); }
+            if (ok) { aggiornaCatalogoLibri(); showInfo("Libro rimosso dal database."); setStatus("Libro rimosso."); }
             else showError("Impossibile rimuovere il libro. Verifica che non abbia prestiti attivi o prenotazioni.");
         });
 
         btnExportCatalog.setOnAction(e -> exportCatalogCsv());
+        btnImportCatalog.setOnAction(e -> importCatalogCsv());
     }
 
     private boolean ensureBibliotecario() {
         if (!SessionContext.isBibliotecario()) { showError(OP_BIBLIOTECARIO); return false; }
+        return true;
+    }
+
+    private boolean ensureBibliotecarioOrAdmin() {
+        if (!(SessionContext.isBibliotecario() || SessionContext.isAdmin())) {
+            showError("Non autorizzato.");
+            return false;
+        }
         return true;
     }
 
@@ -424,13 +481,13 @@ public class ContentManager {
 
     private void processBookAdd(it.biblioteca.bean.BookBean bean) {
         boolean ok = ui.addBook(bean);
-        if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiunto."); }
+        if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiunto."); setStatus("Libro aggiunto."); }
         else showError("Impossibile aggiungere il libro.");
     }
 
     private void processBookUpdate(it.biblioteca.bean.BookBean bean) {
         boolean ok = ui.updateBook(bean);
-        if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiornato."); }
+        if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiornato."); setStatus("Libro aggiornato."); }
         else showError("Impossibile aggiornare il libro.");
     }
 
@@ -445,7 +502,7 @@ public class ContentManager {
         try {
             List<Prestito> attivi = ui.listActiveLoans();
             active = attivi.stream().filter(p -> p.getLibroId() != null && b.getId().equals(p.getLibroId())).count();
-        } catch (Exception _) { }
+        } catch (Exception ignored) { }
         return (int) Math.max(0, copies - active);
     }
 
@@ -467,6 +524,7 @@ public class ContentManager {
         if (btnAddBook != null) btnAddBook.setDisable(!isBibliotecario);
         if (btnEditBook != null) btnEditBook.setDisable(!isBibliotecario);
         if (btnRemoveBook != null) btnRemoveBook.setDisable(!isBibliotecario);
+        if (btnImportCatalog != null) btnImportCatalog.setDisable(!isBibliotecario);
     }
 
     private void aggiornaCatalogoLibri() {
@@ -474,15 +532,18 @@ public class ContentManager {
             List<Book> libri = ui.listBooks();
             if (catalogData == null) catalogData = FXCollections.observableArrayList();
             catalogData.setAll(libri);
+            setStatus("Catalogo aggiornato: " + libri.size() + " libri.");
         } catch (Exception e) {
             showError("Errore nell'aggiornamento del catalogo: " + e.getMessage());
         }
     }
 
+    // ====== Prestiti ======
     public void mostraPrestiti() {
         ensureLoansTab();
         tabPane.getSelectionModel().select(loansTab);
         aggiornaPrestiti();
+        setStatus("Prestiti aperti.");
     }
 
     private void ensureLoansTab() {
@@ -556,6 +617,8 @@ public class ContentManager {
     private void attachLoansListeners() {
         cmbLoanFilter.valueProperty().addListener((obs, o, v) -> applyLoansPredicate());
         txtSearchLoans.textProperty().addListener((obs, o, v) -> applyLoansPredicate());
+
+        tabPane.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> saveCurrentTabPreference(n));
     }
 
     private void setupLoanButtons(Button btnAddLoan, Button btnReturn, Button btnRefresh) {
@@ -577,7 +640,7 @@ public class ContentManager {
         Prestito sel = loansTable.getSelectionModel().getSelectedItem();
         if (sel == null) { showError("Seleziona un prestito da chiudere."); return; }
         boolean ok = ui.registerReturn(sel.getId(), java.time.LocalDate.now());
-        if (ok) { aggiornaPrestiti(); aggiornaCatalogoLibri(); showInfo("Restituzione registrata."); }
+        if (ok) { aggiornaPrestiti(); aggiornaCatalogoLibri(); showInfo("Restituzione registrata."); setStatus("Prestito chiuso."); }
         else showError("Impossibile registrare la restituzione.");
     }
 
@@ -609,6 +672,7 @@ public class ContentManager {
                 aggiornaPrestiti();
                 aggiornaCatalogoLibri();
                 showInfo("Prestito registrato con successo.");
+                setStatus("Prestito registrato.");
                 tabPane.getSelectionModel().select(loansTab);
             } else if (esito == PrestitoController.Esito.UTENTE_INATTIVO) {
                 showError("Impossibile registrare il prestito: utente non attivo.");
@@ -623,6 +687,7 @@ public class ContentManager {
         String filter = cmbLoanFilter != null ? cmbLoanFilter.getSelectionModel().getSelectedItem() : TUTTI;
         String q = (txtSearchLoans != null && txtSearchLoans.getText() != null) ? txtSearchLoans.getText().trim().toLowerCase() : "";
         loansFiltered.setPredicate(p -> matchesLoanFilter(p, filter) && matchesLoanQuery(p, q));
+        setStatus(q.isBlank() ? "Filtro prestiti: " + filter : "Filtro prestiti: " + filter + " | query: \"" + q + "\"");
     }
 
     private boolean matchesLoanFilter(Prestito p, String filter) {
@@ -648,15 +713,18 @@ public class ContentManager {
             if (loansData == null) loansData = FXCollections.observableArrayList();
             loansData.setAll(prestiti);
             applyLoansPredicate();
+            setStatus("Prestiti aggiornati: " + prestiti.size() + " record.");
         } catch (Exception e) {
             showError("Errore nell'aggiornamento dei prestiti: " + e.getMessage());
         }
     }
 
+    // ====== Miei prestiti ======
     public void mostraMieiPrestiti() {
         ensureMyLoansTab();
         tabPane.getSelectionModel().select(myLoansTab);
         aggiornaMieiPrestiti();
+        setStatus("I miei prestiti aperti.");
     }
 
     private void buildMyLoansView() {
@@ -702,6 +770,8 @@ public class ContentManager {
 
         myLoansRoot.setTop(toolbar);
         myLoansRoot.setCenter(myLoansTable);
+
+        tabPane.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> saveCurrentTabPreference(n));
     }
 
     private void applyMyLoansPredicate() {
@@ -709,6 +779,7 @@ public class ContentManager {
         String filter = cmbMyLoanFilter != null ? cmbMyLoanFilter.getSelectionModel().getSelectedItem() : TUTTI;
         String q = (txtSearchMyLoans != null && txtSearchMyLoans.getText() != null) ? txtSearchMyLoans.getText().trim().toLowerCase() : "";
         myLoansFiltered.setPredicate(p -> matchesMyLoanFilter(p, filter) && matchesMyLoanQuery(p, q));
+        setStatus(q.isBlank() ? "Filtro miei prestiti: " + filter : "Filtro miei prestiti: " + filter + " | query: \"" + q + "\"");
     }
 
     private boolean matchesMyLoanFilter(Prestito p, String filter) {
@@ -757,15 +828,18 @@ public class ContentManager {
             if (myLoansData == null) myLoansData = FXCollections.observableArrayList();
             myLoansData.setAll(miei);
             applyMyLoansPredicate();
+            setStatus("I tuoi prestiti aggiornati: " + miei.size() + " record.");
         } catch (Exception e) {
             showError("Errore nell'aggiornamento dei tuoi prestiti: " + e.getMessage());
         }
     }
 
+    // ====== Utenti ======
     public void mostraUtenti() {
         ensureUsersTab();
         tabPane.getSelectionModel().select(usersTab);
         aggiornaUtenti();
+        setStatus("Utenti aperti.");
     }
 
     private void ensureUsersTab() {
@@ -786,10 +860,14 @@ public class ContentManager {
         Button btnEdit = new Button("Modifica");
         Button btnDelete = new Button("Elimina");
         Button btnCred = new Button("Crea/Modifica credenziali");
+        btnImportUsers = new Button("Importa CSV");
         btnExportUsers = new Button("Esporta CSV");
 
         HBox toolbar = buildUsersToolbar(btnAdd, btnEdit, btnDelete, btnCred);
-        toolbar.getChildren().add(3, btnExportUsers);
+        // Inserisco Import/Export subito dopo 'Elimina' e prima di 'Crea/Modifica credenziali'
+        toolbar.getChildren().add(3, btnImportUsers);
+        toolbar.getChildren().add(4, btnExportUsers);
+
         initUsersTable();
         addBaseUserColumns();
         addAdminUserColumnsIfNeeded();
@@ -798,6 +876,7 @@ public class ContentManager {
         setupUserButtons(btnAdd, btnEdit, btnDelete, btnCred);
 
         btnExportUsers.setOnAction(e -> exportUsersCsv());
+        btnImportUsers.setOnAction(e -> importUsersCsv());
 
         usersRoot.setTop(toolbar);
         usersRoot.setCenter(usersTable);
@@ -847,8 +926,9 @@ public class ContentManager {
             String s;
             if (u == null) {
                 s = "";
+            } else {
+                s = stato ? "Inattivo" : "Attivo";
             }
-            else s = stato ? "Inattivo" : "Attivo";
             return new ReadOnlyStringWrapper(s);
         });
         usersTable.getColumns().setAll(tesseraCol, nomeCol, cognomeCol, emailCol, telCol, attCol, scadCol, statoCol);
@@ -861,7 +941,7 @@ public class ContentManager {
             Utente u = cell.getValue();
             String username = "";
             try { if (u != null && u.getId() != null) username = ui.getUsernameForUserId(u.getId()).orElse(""); }
-            catch (Exception _) { }
+            catch (Exception ignored) { }
             return new ReadOnlyStringWrapper(username);
         });
         TableColumn<Utente, String> passwordCol = new TableColumn<>("Password");
@@ -872,6 +952,8 @@ public class ContentManager {
     private void attachUserListeners() {
         txtSearchUsers.textProperty().addListener((obs, o, v) -> applyUsersPredicate());
         cmbUserFilter.valueProperty().addListener((obs, o, v) -> applyUsersPredicate());
+
+        tabPane.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> saveCurrentTabPreference(n));
     }
 
     private void setupUserButtons(Button btnAdd, Button btnEdit, Button btnDelete, Button btnCred) {
@@ -885,7 +967,7 @@ public class ContentManager {
         if (!SessionContext.isBibliotecario()) { showError("Solo il Bibliotecario può creare utenti."); return; }
         AddEditUserDialog dlg = new AddEditUserDialog(null);
         dlg.showAndWait().ifPresent(bean -> {
-            if (ui.addUser(bean)) { aggiornaUtenti(); showInfo("Utente aggiunto."); }
+            if (ui.addUser(bean)) { aggiornaUtenti(); showInfo("Utente aggiunto."); setStatus("Utente aggiunto."); }
             else showError("Impossibile aggiungere l'utente (dati non validi o tessera duplicata?).");
         });
     }
@@ -897,7 +979,7 @@ public class ContentManager {
         AddEditUserDialog dlg = new AddEditUserDialog(sel);
         dlg.showAndWait().ifPresent(bean -> {
             bean.setId(sel.getId());
-            if (ui.updateUser(bean)) { aggiornaUtenti(); showInfo("Utente aggiornato."); }
+            if (ui.updateUser(bean)) { aggiornaUtenti(); showInfo("Utente aggiornato."); setStatus("Utente aggiornato."); }
             else showError("Impossibile aggiornare l'utente (verifica le date).");
         });
     }
@@ -906,30 +988,25 @@ public class ContentManager {
         Utente sel = usersTable.getSelectionModel().getSelectedItem();
         if (sel == null) { showError("Seleziona un utente da eliminare."); return; }
         if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("Non autorizzato."); return; }
-        if (ui.deleteUser(sel.getId())) { aggiornaUtenti(); showInfo("Utente eliminato."); }
+        if (ui.deleteUser(sel.getId())) { aggiornaUtenti(); showInfo("Utente eliminato."); setStatus("Utente eliminato."); }
         else showError("Impossibile eliminare l'utente.");
     }
 
     private void handleCredentials() {
-        if (!ensureAdmin()) return;
+        if (!ensureBibliotecarioOrAdmin()) return;
         Utente sel = usersTable.getSelectionModel().getSelectedItem();
         if (sel == null) { showError("Seleziona un utente per associare le credenziali."); return; }
         java.util.Optional<String> existing;
-        try { existing = ui.getUsernameForUserId(sel.getId()); } catch (Exception _) { existing = java.util.Optional.empty(); }
+        try { existing = ui.getUsernameForUserId(sel.getId()); } catch (Exception ignored) { existing = java.util.Optional.empty(); }
         String existingUsername = existing.orElse("");
         CredentialsDialog dlg = new CredentialsDialog(existingUsername, null);
         dlg.showAndWait().ifPresent(pair -> {
             String username = pair.getKey();
             String password = pair.getValue();
             boolean ok = saveCredentials(sel.getId(), existingUsername, username, password);
-            if (ok) { aggiornaUtenti(); showInfo("Credenziali salvate."); }
+            if (ok) { aggiornaUtenti(); showInfo("Credenziali salvate."); setStatus("Credenziali salvate."); }
             else showError("Impossibile salvare credenziali.");
         });
-    }
-
-    private boolean ensureAdmin() {
-        if (!SessionContext.isAdmin()) { showError("Solo Admin può gestire le credenziali."); return false; }
-        return true;
     }
 
     private boolean saveCredentials(Long userId, String existingUsername, String username, String password) {
@@ -951,6 +1028,7 @@ public class ContentManager {
         String q = (txtSearchUsers != null && txtSearchUsers.getText() != null)
                 ? txtSearchUsers.getText().trim().toLowerCase() : "";
         usersFiltered.setPredicate(makeUserPredicate(q, stato));
+        setStatus(q.isBlank() ? "Filtro utenti: " + stato : "Filtro utenti: " + stato + " | query: \"" + q + "\"");
     }
 
     private java.util.function.Predicate<Utente> makeUserPredicate(String q, String statoFilter) {
@@ -984,11 +1062,13 @@ public class ContentManager {
             if (usersData == null) usersData = FXCollections.observableArrayList();
             usersData.setAll(utenti);
             applyUsersPredicate();
+            setStatus("Utenti aggiornati: " + utenti.size() + " record.");
         } catch (Exception e) {
             showError("Errore nell'aggiornamento degli utenti: " + e.getMessage());
         }
     }
 
+    // ====== Profilo ======
     public void mostraProfiloUtente() {
         if (!SessionContext.isUtente()) { showError("Profilo disponibile solo per utenti autenticati."); return; }
         if (profileTab == null) {
@@ -1005,6 +1085,7 @@ public class ContentManager {
         VBox infoBox = buildProfileBox(ut);
         p.setCenter(infoBox);
         tabPane.getSelectionModel().select(profileTab);
+        setStatus("Profilo utente aperto.");
     }
 
     private Utente findUserByTessera(Integer tess) {
@@ -1037,14 +1118,61 @@ public class ContentManager {
 
     private String safe(String s) { return s != null ? s : ""; }
 
+    // ====== StatusBar ======
+    private void buildStatusBar() {
+        statusLabel = new Label("");
+        statusBar = new HBox(statusLabel);
+        statusBar.setPadding(new Insets(4, 8, 4, 8));
+        statusBar.getStyleClass().add("status-bar"); // (puoi stilizzarla nel CSS del tema)
+    }
+
+    private void setStatus(String msg) {
+        if (statusLabel != null) statusLabel.setText(msg != null ? msg : "");
+    }
+
     private void showInfo(String msg) {
         Alert a = new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK);
         a.setHeaderText(null); a.setTitle("Informazione"); a.showAndWait();
+        setStatus(msg);
     }
 
     private void showError(String msg) {
         Alert a = new Alert(Alert.AlertType.ERROR, msg, ButtonType.OK);
         a.setHeaderText(null); a.setTitle("Errore"); a.showAndWait();
+        setStatus(msg);
+    }
+
+    // ====== Tabs & Preferenze ======
+    private void restoreLastTab() {
+        String last = AppPreferences.loadLastTabOrDefault();
+        switch (last) {
+            case "catalogo" -> mostraCatalogoLibri();
+            case "prestiti" -> mostraPrestiti();
+            case "utenti" -> mostraUtenti();
+            case "profilo" -> mostraProfiloUtente();
+            case "miei_prestiti" -> mostraMieiPrestiti();
+            default -> mostraHome();
+        }
+    }
+
+    private void saveCurrentTabPreference(Tab n) {
+        if (n == null) return;
+        String id = "home";
+        if (n == catalogTab) id = "catalogo";
+        else if (n == loansTab) id = "prestiti";
+        else if (n == usersTab) id = "utenti";
+        else if (n == profileTab) id = "profilo";
+        else if (n == myLoansTab) id = "miei_prestiti";
+        AppPreferences.saveLastTab(id);
+    }
+
+    // ====== Tema ======
+    private void applyTheme() {
+        if (rootContainer == null) return;
+        updateRootStyleClass();
+        Scene scene = rootContainer.getScene();
+        if (scene != null) applyThemeToScene(scene);
+        else applyThemeWithoutScene();
     }
 
     private void ensureMyLoansTab() {
@@ -1057,14 +1185,6 @@ public class ContentManager {
         if (!tabPane.getTabs().contains(myLoansTab)) tabPane.getTabs().add(myLoansTab);
     }
 
-    private void applyTheme() {
-        if (rootContainer == null) return;
-        updateRootStyleClass();
-        javafx.scene.Scene scene = rootContainer.getScene();
-        if (scene != null) applyThemeToScene(scene);
-        else applyThemeWithoutScene();
-    }
-
     private void updateRootStyleClass() {
         rootContainer.getStyleClass().removeAll(THEME_COLORI_CLASS, THEME_BW_CLASS);
         String themeClass = (currentTheme == Theme.BIANCO_NERO) ? THEME_BW_CLASS : THEME_COLORI_CLASS;
@@ -1073,7 +1193,7 @@ public class ContentManager {
         }
     }
 
-    private void applyThemeToScene(javafx.scene.Scene scene) {
+    private void applyThemeToScene(Scene scene) {
         scene.getStylesheets().removeIf(s -> s.endsWith("theme-color.css") || s.endsWith("theme-bw.css"));
         String cssPath = (currentTheme == Theme.BIANCO_NERO) ? THEME_BW_CSS : THEME_COLORI_CSS;
         java.net.URL url = getClass().getResource(cssPath);
@@ -1105,13 +1225,13 @@ public class ContentManager {
     public void mostraHome() {
         if (tabPane != null && homeTab != null) {
             tabPane.getSelectionModel().select(homeTab);
+            setStatus("Home.");
         }
     }
 
-    // ====== EXPORT ======
-
+    // ====== Export ======
     private void exportCatalogCsv() {
-        File f = chooseCsvFile("Esporta catalogo", "catalogo.csv");
+        File f = chooseCsvSaveFile("Esporta catalogo", "catalogo.csv");
         if (f == null) return;
         try {
             CsvExporter.exportBooks(catalogData != null ? catalogData : java.util.Collections.emptyList(), f);
@@ -1122,7 +1242,7 @@ public class ContentManager {
     }
 
     private void exportLoansCsv() {
-        File f = chooseCsvFile("Esporta prestiti", "prestiti.csv");
+        File f = chooseCsvSaveFile("Esporta prestiti", "prestiti.csv");
         if (f == null) return;
         try {
             CsvExporter.exportLoans(loansData != null ? loansData : java.util.Collections.emptyList(), f);
@@ -1133,7 +1253,7 @@ public class ContentManager {
     }
 
     private void exportUsersCsv() {
-        File f = chooseCsvFile("Esporta utenti", "utenti.csv");
+        File f = chooseCsvSaveFile("Esporta utenti", "utenti.csv");
         if (f == null) return;
         try {
             CsvExporter.exportUsers(usersData != null ? usersData : java.util.Collections.emptyList(), f);
@@ -1144,7 +1264,7 @@ public class ContentManager {
     }
 
     private void exportMyLoansCsv() {
-        File f = chooseCsvFile("Esporta i miei prestiti", "miei_prestiti.csv");
+        File f = chooseCsvSaveFile("Esporta i miei prestiti", "miei_prestiti.csv");
         if (f == null) return;
         try {
             CsvExporter.exportLoans(myLoansData != null ? myLoansData : java.util.Collections.emptyList(), f);
@@ -1154,11 +1274,127 @@ public class ContentManager {
         }
     }
 
-    private File chooseCsvFile(String title, String defaultName) {
+    // ====== Import ======
+    private void importCatalogCsv() {
+        if (!ensureBibliotecario()) return;
+        File f = chooseCsvOpenFile("Importa catalogo (CSV)");
+        if (f == null) return;
+
+        int ok = 0, fail = 0;
+        try {
+            List<it.biblioteca.bean.BookBean> beans = CsvImporter.importBooks(f);
+            for (it.biblioteca.bean.BookBean b : beans) {
+                try {
+                    if (ui.addBook(b)) ok++; else fail++;
+                } catch (Exception ex) { fail++; }
+            }
+            aggiornaCatalogoLibri();
+            showInfo("Import catalogo completato.\nSuccessi: " + ok + "\nFalliti: " + fail);
+        } catch (Exception ex) {
+            showError("Errore import catalogo: " + ex.getMessage());
+        }
+    }
+
+    private void importUsersCsv() {
+        if (!ensureBibliotecarioOrAdmin()) return;
+        File f = chooseCsvOpenFile("Importa utenti (CSV)");
+        if (f == null) return;
+
+        int ok = 0, fail = 0;
+        try {
+            List<it.biblioteca.bean.UtenteBean> beans = CsvImporter.importUsers(f);
+            for (it.biblioteca.bean.UtenteBean u : beans) {
+                try {
+                    if (ui.addUser(u)) ok++; else fail++;
+                } catch (Exception ex) { fail++; }
+            }
+            aggiornaUtenti();
+            showInfo("Import utenti completato.\nSuccessi: " + ok + "\nFalliti: " + fail);
+        } catch (Exception ex) {
+            showError("Errore import utenti: " + ex.getMessage());
+        }
+    }
+
+    // ====== File Choosers (con preferenze directory) ======
+    private File chooseCsvSaveFile(String title, String defaultName) {
         FileChooser fc = new FileChooser();
         fc.setTitle(title);
         fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV (*.csv)", "*.csv"));
         fc.setInitialFileName(defaultName);
-        return fc.showSaveDialog(rootContainer != null && rootContainer.getScene() != null ? rootContainer.getScene().getWindow() : null);
+        File last = AppPreferences.loadLastDirectoryOrNull();
+        if (last != null) fc.setInitialDirectory(last);
+        File out = fc.showSaveDialog(rootContainer != null && rootContainer.getScene() != null ? rootContainer.getScene().getWindow() : null);
+        if (out != null && out.getParentFile() != null) AppPreferences.saveLastDirectory(out.getParentFile());
+        return out;
+    }
+
+    private File chooseCsvOpenFile(String title) {
+        FileChooser fc = new FileChooser();
+        fc.setTitle(title);
+        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV (*.csv)", "*.csv"));
+        File last = AppPreferences.loadLastDirectoryOrNull();
+        if (last != null) fc.setInitialDirectory(last);
+        File out = fc.showOpenDialog(rootContainer != null && rootContainer.getScene() != null ? rootContainer.getScene().getWindow() : null);
+        if (out != null && out.getParentFile() != null) AppPreferences.saveLastDirectory(out.getParentFile());
+        return out;
+    }
+
+    // ====== Scorciatoie da tastiera ======
+    private void registerAccelerators(Scene scene) {
+        if (scene == null) return;
+        // Navigazione
+        put(scene, "Ctrl+H", this::mostraHome);
+        put(scene, "Ctrl+C", this::mostraCatalogoLibri);
+        put(scene, "Ctrl+L", this::mostraPrestiti);
+        put(scene, "Ctrl+U", this::mostraUtenti);
+        put(scene, "Ctrl+P", this::mostraProfiloUtente);
+        put(scene, "Ctrl+M", this::mostraMieiPrestiti);
+        put(scene, "Ctrl+Q", Platform::exit);
+
+        // Ricerca corrente
+        put(scene, "Ctrl+F", this::focusSearchFieldForActiveTab);
+
+        // Export/Import in base alla tab attiva
+        put(scene, "Ctrl+E", this::exportForActiveTab);
+        put(scene, "Ctrl+I", this::importForActiveTab);
+    }
+
+    private void put(Scene scene, String combo, Runnable action) {
+        scene.getAccelerators().put(KeyCombination.keyCombination(combo), action);
+    }
+
+    private void focusSearchFieldForActiveTab() {
+        Tab t = tabPane.getSelectionModel().getSelectedItem();
+        if (t == catalogTab && txtSearchCatalog != null) {
+            txtSearchCatalog.requestFocus();
+            setStatus("Ricerca catalogo attivata.");
+        } else if (t == loansTab && txtSearchLoans != null) {
+            txtSearchLoans.requestFocus();
+            setStatus("Ricerca prestiti attivata.");
+        } else if (t == usersTab && txtSearchUsers != null) {
+            txtSearchUsers.requestFocus();
+            setStatus("Ricerca utenti attivata.");
+        } else if (t == myLoansTab && txtSearchMyLoans != null) {
+            txtSearchMyLoans.requestFocus();
+            setStatus("Ricerca miei prestiti attivata.");
+        } else {
+            setStatus("Nessun campo ricerca disponibile per la tab corrente.");
+        }
+    }
+
+    private void exportForActiveTab() {
+        Tab t = tabPane.getSelectionModel().getSelectedItem();
+        if (t == catalogTab) exportCatalogCsv();
+        else if (t == loansTab) exportLoansCsv();
+        else if (t == usersTab) exportUsersCsv();
+        else if (t == myLoansTab) exportMyLoansCsv();
+        else showInfo("Nessuna esportazione disponibile in questa sezione.");
+    }
+
+    private void importForActiveTab() {
+        Tab t = tabPane.getSelectionModel().getSelectedItem();
+        if (t == catalogTab) importCatalogCsv();
+        else if (t == usersTab) importUsersCsv();
+        else showInfo("Nessun import disponibile in questa sezione.");
     }
 }
