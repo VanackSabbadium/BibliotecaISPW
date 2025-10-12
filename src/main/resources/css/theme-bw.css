@@ -1,16 +1,12 @@
-/* Tema Bianco e Nero: palette in scala di grigi */
 .root {
     -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-
-    /* Niente colori: solo grigi e nero */
-    -fx-accent: #000000;                /* Accenti neri */
-    -fx-focus-color: #000000;           /* Focus nero */
-    -fx-base: #f2f2f2;                  /* Grigio chiaro come base */
+    -fx-accent: #000000;
+    -fx-focus-color: #000000;
+    -fx-base: #f2f2f2;
     -fx-control-inner-background: white;
     -fx-text-fill: #000000;
 }
 
-/* Bottoni */
 .button {
     -fx-background-radius: 4;
     -fx-background-color: linear-gradient(#ffffff, #e6e6e6);
@@ -22,18 +18,18 @@
     -fx-text-fill: white;
 }
 
-/* TableView header e righe */
 .table-view .column-header-background {
     -fx-background-color: #e0e0e0;
 }
-.table-row-cell:selected {
-    -fx-background-color: #000000;
-}
-.table-row-cell:selected .text {
-    -fx-fill: white;
+
+/* Colori selezione TableView */
+.table-view {
+    -fx-selection-bar: #000000;
+    -fx-selection-bar-non-focused: #000000;
+    -fx-selection-bar-text: white;
 }
 
-/* Tab selezionata */
-.tab-pane .tab-header-area .tab:selected {
+/* Header area dei Tab */
+.tab-pane .tab-header-area {
     -fx-background-color: #e0e0e0;
 }

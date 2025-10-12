@@ -1,15 +1,11 @@
-/* Tema a colori: accenti blu, look moderno */
 .root {
     -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-
-    /* Colori chiave */
-    -fx-accent: #3f51b5;          /* Accenti (selezioni, barre di progresso, default button) */
-    -fx-focus-color: #3f51b5;     /* Colore focus */
-    -fx-base: #f6f7fb;            /* Base per controlli */
+    -fx-accent: #3f51b5;
+    -fx-focus-color: #3f51b5;
+    -fx-base: #f6f7fb;
     -fx-control-inner-background: white;
 }
 
-/* Bottoni */
 .button {
     -fx-background-radius: 4;
 }
@@ -18,20 +14,18 @@
     -fx-text-fill: white;
 }
 
-/* TableView header */
 .table-view .column-header-background {
     -fx-background-color: #e6e8f5;
 }
 
-/* Riga selezionata in TableView */
-.table-row-cell:selected {
-    -fx-background-color: -fx-accent;
-}
-.table-row-cell:selected .text {
-    -fx-fill: white;
+/* Colori selezione TableView */
+.table-view {
+    -fx-selection-bar: -fx-accent;
+    -fx-selection-bar-non-focused: -fx-accent;
+    -fx-selection-bar-text: white;
 }
 
-/* Tab selezionata */
-.tab-pane .tab-header-area .tab:selected {
+/* Header area dei Tab */
+.tab-pane .tab-header-area {
     -fx-background-color: #e6e8f5;
 }

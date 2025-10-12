@@ -42,7 +42,7 @@ public final class DatabaseConfig {
         try {
             DriverManager.getConnection(buildJdbcUrl(), user, pass).close();
             return true;
-        } catch (SQLException e) {
+        } catch (SQLException _) {
             return false;
         }
     }
