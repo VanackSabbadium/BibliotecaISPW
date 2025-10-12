@@ -1,7 +1,5 @@
 package it.biblioteca.ui;
 
-// Import dei controller e delle entità core dell’applicazione.
-// Ho cercato di mantenere gli import il più essenziali possibile.
 import it.biblioteca.controller.PrestitoController;
 import it.biblioteca.entity.Book;
 import it.biblioteca.entity.Prestito;
@@ -36,39 +34,23 @@ import java.util.function.Predicate;
 
 import it.biblioteca.ui.facade.UiFacade;
 
-/**
- * ContentManager
+// aggiunte per export
+import javafx.stage.FileChooser;
+import java.io.File;
+import it.biblioteca.util.csv.CsvExporter;
 
- * Questa classe si occupa della gestione della UI principale dell'applicazione.
- * In pratica è un “coordinatore” che:
- *  - gestisce login + tema,
- *  - prepara le tab (home, catalogo, prestiti, utenti, profilo, miei prestiti),
- *  - collega i pulsanti e gli handler,
- *  - effettua refresh dei dati quando servono.
-
- * La cosa interessante è che qui non parlo direttamente con i servizi o i DAO,
- * ma passo da una Facade (UiFacade) che semplifica la vita. Così la UI rimane più pulita
- * e se un domani cambia la logica dei service o la struttura dei controller, si tocca meno codice qui.
-
- * Nota: Ho aggiunto parecchi commenti per spiegare i passaggi come li spiegherei a un compagno di corso.
- */
 public class ContentManager {
 
-    // Tema selezionabile dall’utente (colori o bianco/nero).
     public enum Theme { COLORI, BIANCO_NERO }
 
-    // Sottoscrizioni agli eventi del bus (quando cambiano libri, prestiti o utenti).
     private Subscription subBook;
     private Subscription subLoan;
     private Subscription subUser;
 
-    // Costanti per i fogli di stile e classi CSS, in modo da non avere stringhe sparse ovunque.
     private static final String THEME_COLORI_CSS = "/css/theme-color.css";
     private static final String THEME_BW_CSS     = "/css/theme-bw.css";
     private static final String THEME_COLORI_CLASS = "theme-color";
     private static final String THEME_BW_CLASS     = "theme-bw";
-
-    // Testi usati spesso nella UI (mi aiuta a non ripetermi e a centralizzare).
     private static final String RICERCA = "Ricerca:";
     private static final String TOOLBAR = "toolbar";
     private static final String OP_BIBLIOTECARIO = "Operazione consentita solo al Bibliotecario.";
@@ -76,10 +58,8 @@ public class ContentManager {
     private static final String TUTTI = "Tutti";
     private static final String FILTRO = "Filtro:";
 
-    // Facade della UI: un oggetto che raggruppa operazioni tipiche che la UI richiede (lista libri, utenti, ecc.).
     private final UiFacade ui;
 
-    // Contenitori e tab principali: questa è un’app JavaFX “tabbed”.
     private BorderPane rootContainer;
     private TabPane tabPane;
     private Tab homeTab;
@@ -89,10 +69,8 @@ public class ContentManager {
     private Tab profileTab;
     private Tab myLoansTab;
 
-    // Tema corrente (di default ho messo colori).
     private Theme currentTheme = Theme.COLORI;
 
-    // Sezione Catalogo: tabella + filtri + toolbar.
     private TableView<Book> catalogTable;
     private ObservableList<Book> catalogData;
     private FilteredList<Book> catalogFiltered;
@@ -103,8 +81,8 @@ public class ContentManager {
     private Button btnAddBook;
     private Button btnEditBook;
     private Button btnRemoveBook;
+    private Button btnExportCatalog; // nuovo
 
-    // Sezione Prestiti (generale, per bibliotecario).
     private TableView<Prestito> loansTable;
     private ObservableList<Prestito> loansData;
     private FilteredList<Prestito> loansFiltered;
@@ -112,8 +90,8 @@ public class ContentManager {
     private TextField txtSearchLoans;
     private ComboBox<String> cmbLoanFilter;
     private BorderPane loansRoot;
+    private Button btnExportLoans; // nuovo
 
-    // Sezione “I miei prestiti” (per utenti).
     private TableView<Prestito> myLoansTable;
     private ObservableList<Prestito> myLoansData;
     private FilteredList<Prestito> myLoansFiltered;
@@ -121,8 +99,8 @@ public class ContentManager {
     private TextField txtSearchMyLoans;
     private ComboBox<String> cmbMyLoanFilter;
     private BorderPane myLoansRoot;
+    private Button btnExportMyLoans; // nuovo
 
-    // Sezione Utenti (gestita da admin/bibliotecario).
     private TableView<Utente> usersTable;
     private ObservableList<Utente> usersData;
     private FilteredList<Utente> usersFiltered;
@@ -130,31 +108,24 @@ public class ContentManager {
     private TextField txtSearchUsers;
     private ComboBox<String> cmbUserFilter;
     private BorderPane usersRoot;
+    private Button btnExportUsers; // nuovo
 
-    // Costruttore: inietto la facade (così ContentManager non dipende da mille classi, ma da una sola).
     public ContentManager(UiFacade ui) {
         this.ui = ui;
-        // Creo le liste osservabili; comodo per aggiornare le TableView in modo reattivo.
         this.catalogData = FXCollections.observableArrayList();
         this.loansData = FXCollections.observableArrayList();
         this.myLoansData = FXCollections.observableArrayList();
         this.usersData = FXCollections.observableArrayList();
     }
 
-    /**
-     * Metodo principale di setup della UI.
-     * Qui chiedo le credenziali, setto il tema, preparo le tab e faccio i primi “refresh”.
-     */
     public void inizializzaContenuto(BorderPane root) {
         this.rootContainer = root;
 
-        // Loop di login/tema: continuo a chiedere finché non va tutto bene (DB + credenziali app).
         boolean done = false;
         while (!done) {
             StartupDialog dlg = new StartupDialog();
             Optional<StartupResult> res = dlg.showAndWait();
 
-            // Se chiude il dialogo senza confermare, esco dall’app.
             if (res.isEmpty()) {
                 Platform.exit();
                 return;
@@ -163,13 +134,11 @@ public class ContentManager {
             StartupResult r = res.get();
             String error = null;
 
-            // Validazioni a step. Se qualcosa non va, salvo un messaggio d’errore e itero il ciclo.
             if (!r.isValid()) {
                 error = "Compila tutti i campi richiesti.";
             } else if (!it.biblioteca.db.DatabaseConfig.testCredentials(r.getUsername(), r.getPassword())) {
                 error = "Credenziali DB non valide. Riprova.";
             } else {
-                // Credenziali DB OK: applico, imposto tema e provo autenticazione applicativa.
                 it.biblioteca.db.DatabaseConfig.apply(r);
                 this.currentTheme = r.getTheme();
                 applyTheme();
@@ -178,7 +147,6 @@ public class ContentManager {
                 if (!ar.ok()) {
                     error = "Credenziali applicative non valide. Riprova.";
                 } else {
-                    // Se arrivo qui, tutto liscio: memorizzo nel contesto la sessione dell’utente.
                     SessionContext.setRole(ar.role());
                     SessionContext.setUserId(ar.userId());
                     SessionContext.setTessera(ar.tessera());
@@ -186,13 +154,11 @@ public class ContentManager {
                 }
             }
 
-            // Se ho un errore da mostrare, lo mostro e il ciclo riparte.
             if (error != null) {
                 showError(error);
             }
         }
 
-        // Creo la TabPane e la metto a sinistra con la sidebar di navigazione.
         tabPane = new TabPane();
         subscribeToEvents();
         homeTab = new Tab("Home", buildHomeView());
@@ -204,17 +170,12 @@ public class ContentManager {
 
         root.setCenter(tabPane);
 
-        // Primo caricamento dati per tutte le sezioni principali.
         aggiornaCatalogoLibri();
         aggiornaPrestiti();
         aggiornaUtenti();
         aggiornaMieiPrestiti();
     }
 
-    /**
-     * Mi sottoscrivo all’EventBus: quando cambiano libri/prestiti/utenti,
-     * faccio i refresh corrispondenti (su FX thread).
-     */
     private void subscribeToEvents() {
         EventBus bus = EventBus.getDefault();
         subBook = bus.subscribe(BookChanged.class, e -> Platform.runLater(this::aggiornaCatalogoLibri));
@@ -222,10 +183,6 @@ public class ContentManager {
         subUser = bus.subscribe(UtenteChanged.class, e -> Platform.runLater(this::aggiornaUtenti));
     }
 
-    /**
-     * Sidebar di navigazione a sinistra: i pulsanti visibili dipendono dal ruolo.
-     * Ho cercato di mantenere la cosa semplice: pochi pulsanti e chiari per ogni profilo.
-     */
     private VBox buildLeftSidebar() {
         Button btnHome = new Button("Home");
         btnHome.setMaxWidth(Double.MAX_VALUE);
@@ -260,7 +217,6 @@ public class ContentManager {
         left.setFillWidth(true);
         left.getStyleClass().add("sidebar");
 
-        // Logica di visibilità: ogni ruolo vede solo ciò che gli serve.
         if (SessionContext.isAdmin()) {
             left.getChildren().addAll(btnHome, btnUsers, btnExit);
         } else if (SessionContext.isBibliotecario()) {
@@ -274,10 +230,6 @@ public class ContentManager {
         return left;
     }
 
-    /**
-     * Costruzione della Home: molto basic, con una label informativa e i pulsanti rapidi.
-     * Ho messo l’azione collegata per ciascun pulsante (apre la tab corrispondente).
-     */
     private BorderPane buildHomeView() {
         BorderPane p = new BorderPane();
         p.setPadding(new Insets(20));
@@ -308,7 +260,6 @@ public class ContentManager {
         Button btnExit = new Button("Esci");
         btnExit.setOnAction(e -> Platform.exit());
 
-        // Anche qui, i pulsanti rapidi dipendono dal ruolo.
         if (SessionContext.isAdmin()) {
             actions.getChildren().addAll(btnGoUsers, btnExit);
         } else if (SessionContext.isBibliotecario()) {
@@ -327,9 +278,6 @@ public class ContentManager {
         return p;
     }
 
-    /**
-     * Messaggio della home che cambia in base al ruolo (giusto per orientare l’utente).
-     */
     private String getHomeDescriptionForRole() {
         if (SessionContext.isBibliotecario()) {
             return "Sei connesso come Bibliotecario. Puoi gestire catalogo, prestiti e utenti.";
@@ -341,8 +289,6 @@ public class ContentManager {
             return "Effettua il login per continuare.";
         }
     }
-
-    // Metodi di apertura tab: garantisco che la tab esista, poi la seleziono e refresho i dati.
 
     public void mostraCatalogoLibri() {
         ensureCatalogTab();
@@ -360,11 +306,6 @@ public class ContentManager {
         if (!tabPane.getTabs().contains(catalogTab)) tabPane.getTabs().add(catalogTab);
     }
 
-    /**
-     * Costruzione della view Catalogo:
-     * - toolbar con pulsanti (aggiungi, modifica, rimuovi) + ricerca
-     * - table con tutte le colonne necessarie
-     */
     private void buildCatalogView() {
         catalogRoot = new BorderPane();
         catalogRoot.setPadding(new Insets(10));
@@ -382,20 +323,19 @@ public class ContentManager {
         applyCatalogPermissions();
     }
 
-    // Toolbar del catalogo: pulsanti + campo ricerca.
     private HBox buildCatalogToolbar() {
         btnAddBook = new Button("Aggiungi Libro");
         btnEditBook = new Button("Modifica Libro");
         btnRemoveBook = new Button("Rimuovi Libro");
+        btnExportCatalog = new Button("Esporta CSV");
         txtSearchCatalog = new TextField();
         txtSearchCatalog.setPromptText("Cerca nel catalogo...");
-        HBox toolbar = new HBox(10, btnAddBook, btnEditBook, btnRemoveBook, new Label(RICERCA), txtSearchCatalog);
+        HBox toolbar = new HBox(10, btnAddBook, btnEditBook, btnRemoveBook, btnExportCatalog, new Label(RICERCA), txtSearchCatalog);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
         toolbar.getStyleClass().add(TOOLBAR);
         return toolbar;
     }
 
-    // Setup base della tabella catalogo (placeholder, filtro/ordinamento ecc.).
     private void initCatalogTable() {
         catalogTable = new TableView<>();
         catalogTable.setPlaceholder(new Label("Nessun libro da mostrare"));
@@ -404,7 +344,6 @@ public class ContentManager {
         catalogSorted.comparatorProperty().bind(catalogTable.comparatorProperty());
     }
 
-    // Creo le colonne e le inserisco (variano leggermente per l’utente semplice).
     private void addCatalogColumns() {
         TableColumn<Book, String> isbnCol = new TableColumn<>("ISBN");
         isbnCol.setCellValueFactory(new PropertyValueFactory<>("isbn"));
@@ -426,21 +365,18 @@ public class ContentManager {
         }
     }
 
-    // Colonna “copie totali”.
     private TableColumn<Book, Integer> colCopie() {
         TableColumn<Book, Integer> c = new TableColumn<>("Copie");
         c.setCellValueFactory(cell -> new ReadOnlyObjectWrapper<>(copiesOf(cell.getValue())));
         return c;
     }
 
-    // Colonna “copie disponibili” (copie totali meno prestiti attivi di quel libro).
     private TableColumn<Book, Integer> colCopieDisponibili() {
         TableColumn<Book, Integer> c = new TableColumn<>("Copie disponibili");
         c.setCellValueFactory(cell -> new ReadOnlyObjectWrapper<>(availableCopiesOf(cell.getValue())));
         return c;
     }
 
-    // Listener per la ricerca nel catalogo.
     private void attachCatalogListeners() {
         txtSearchCatalog.textProperty().addListener((obs, o, val) -> {
             String q = val == null ? "" : val.trim().toLowerCase();
@@ -448,7 +384,6 @@ public class ContentManager {
         });
     }
 
-    // Azioni dei tre pulsanti del catalogo (aggiungi, modifica, rimuovi).
     private void attachCatalogActions() {
         btnAddBook.setOnAction(e -> {
             if (!ensureBibliotecario()) return;
@@ -472,22 +407,21 @@ public class ContentManager {
             if (ok) { aggiornaCatalogoLibri(); showInfo("Libro rimosso dal database."); }
             else showError("Impossibile rimuovere il libro. Verifica che non abbia prestiti attivi o prenotazioni.");
         });
+
+        btnExportCatalog.setOnAction(e -> exportCatalogCsv());
     }
 
-    // Mini helper per capire se chi usa l’azione è bibliotecario (evito ripetizioni).
     private boolean ensureBibliotecario() {
         if (!SessionContext.isBibliotecario()) { showError(OP_BIBLIOTECARIO); return false; }
         return true;
     }
 
-    // Helper per prendere il libro selezionato (con messaggio standard se nulla selezionato).
     private Book requireSelectedBook(String msg) {
         Book s = catalogTable.getSelectionModel().getSelectedItem();
         if (s == null) showError(msg);
         return s;
     }
 
-    // Post-elaborazioni add/update libro: faccio refresh e mostro feedback.
     private void processBookAdd(it.biblioteca.bean.BookBean bean) {
         boolean ok = ui.addBook(bean);
         if (ok) { aggiornaCatalogoLibri(); showInfo("Libro aggiunto."); }
@@ -500,12 +434,10 @@ public class ContentManager {
         else showError("Impossibile aggiornare il libro.");
     }
 
-    // Copie totali del libro (se b è null, 0).
     private int copiesOf(Book b) {
         return b == null ? 0 : b.getCopie();
     }
 
-    // Copie disponibili = copie totali - numero di prestiti attivi su quel libro.
     private int availableCopiesOf(Book b) {
         int copies = copiesOf(b);
         if (b == null || b.getId() == null) return copies;
@@ -513,12 +445,10 @@ public class ContentManager {
         try {
             List<Prestito> attivi = ui.listActiveLoans();
             active = attivi.stream().filter(p -> p.getLibroId() != null && b.getId().equals(p.getLibroId())).count();
-        } catch (Exception _) { // vuoto: qui non voglio interrompere la tab, preferisco mostrare 0 se errore
-        }
+        } catch (Exception _) { }
         return (int) Math.max(0, copies - active);
     }
 
-    // Predicato per filtrare i libri in base alla query della ricerca.
     private Predicate<Book> makeBookPredicate(String q) {
         if (q == null || q.isBlank()) return b -> true;
         return b -> {
@@ -532,7 +462,6 @@ public class ContentManager {
         };
     }
 
-    // Abilito/disabilito i bottoni del catalogo in base al ruolo.
     private void applyCatalogPermissions() {
         boolean isBibliotecario = SessionContext.isBibliotecario();
         if (btnAddBook != null) btnAddBook.setDisable(!isBibliotecario);
@@ -540,7 +469,6 @@ public class ContentManager {
         if (btnRemoveBook != null) btnRemoveBook.setDisable(!isBibliotecario);
     }
 
-    // Carico/aggiorno la lista dei libri.
     private void aggiornaCatalogoLibri() {
         try {
             List<Book> libri = ui.listBooks();
@@ -551,7 +479,6 @@ public class ContentManager {
         }
     }
 
-    // Sezione Prestiti (tab generale).
     public void mostraPrestiti() {
         ensureLoansTab();
         tabPane.getSelectionModel().select(loansTab);
@@ -568,11 +495,6 @@ public class ContentManager {
         if (!tabPane.getTabs().contains(loansTab)) tabPane.getTabs().add(loansTab);
     }
 
-    /**
-     * Costruzione della tab Prestiti:
-     * - toolbar con azioni (nuovo prestito, restituzione, refresh)
-     * - tabella con colonne principali (id, libro, utente, date)
-     */
     private void buildLoansView() {
         loansRoot = new BorderPane();
         loansRoot.setPadding(new Insets(10));
@@ -580,6 +502,7 @@ public class ContentManager {
         Button btnAddLoan = new Button("Registra Prestito");
         Button btnReturn = new Button("Registra Restituzione");
         Button btnRefresh = new Button("Aggiorna");
+        btnExportLoans = new Button("Esporta CSV");
         HBox toolbar = buildLoansToolbar(btnAddLoan, btnReturn, btnRefresh);
 
         initLoansTable();
@@ -592,20 +515,19 @@ public class ContentManager {
         if (!SessionContext.isBibliotecario()) loansTab.setDisable(true);
     }
 
-    // Toolbar per i prestiti (filtri + ricerca + azioni).
     private HBox buildLoansToolbar(Button btnAddLoan, Button btnReturn, Button btnRefresh) {
         cmbLoanFilter = new ComboBox<>();
         cmbLoanFilter.getItems().addAll(TUTTI, ATTIVI, "Non attivi");
         cmbLoanFilter.getSelectionModel().select(TUTTI);
         txtSearchLoans = new TextField();
         txtSearchLoans.setPromptText("Cerca nei prestiti...");
-        HBox toolbar = new HBox(10, btnAddLoan, btnReturn, btnRefresh, new Label(FILTRO), cmbLoanFilter, new Label(RICERCA), txtSearchLoans);
+        HBox toolbar = new HBox(10, btnAddLoan, btnReturn, btnRefresh, btnExportLoans, new Label(FILTRO), cmbLoanFilter, new Label(RICERCA), txtSearchLoans);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
         toolbar.getStyleClass().add(TOOLBAR);
+        btnExportLoans.setOnAction(e -> exportLoansCsv());
         return toolbar;
     }
 
-    // Setup della tabella prestiti (filtro/ordinamento).
     private void initLoansTable() {
         loansTable = new TableView<>();
         loansTable.setPlaceholder(new Label("Nessun prestito da mostrare"));
@@ -615,7 +537,6 @@ public class ContentManager {
         loansTable.setItems(loansSorted);
     }
 
-    // Colonne principali dei prestiti che voglio mostrare.
     private List<TableColumn<Prestito, ?>> loanColumns() {
         TableColumn<Prestito, Long> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
@@ -632,20 +553,17 @@ public class ContentManager {
         return cols;
     }
 
-    // Listener su filtro e ricerca dei prestiti.
     private void attachLoansListeners() {
         cmbLoanFilter.valueProperty().addListener((obs, o, v) -> applyLoansPredicate());
         txtSearchLoans.textProperty().addListener((obs, o, v) -> applyLoansPredicate());
     }
 
-    // Azioni sui pulsanti dei prestiti: ho spacchettato in metodi più piccoli per chiarezza.
     private void setupLoanButtons(Button btnAddLoan, Button btnReturn, Button btnRefresh) {
         btnAddLoan.setOnAction(e -> handleAddLoan());
         btnReturn.setOnAction(e -> handleReturnLoan());
         btnRefresh.setOnAction(e -> aggiornaPrestiti());
     }
 
-    // Flusso “Registra prestito”: filtro libri disponibili, chiedo libro e utente, poi conferma.
     private void handleAddLoan() {
         if (!ensureBibliotecario()) return;
         List<Book> disponibili = libriDisponibili();
@@ -654,7 +572,6 @@ public class ContentManager {
                 chooseUser().ifPresent(u -> confirmPrestito(b, u)));
     }
 
-    // Flusso “Restituzione”: serve una selezione, poi chiamo la facade e refresho.
     private void handleReturnLoan() {
         if (!ensureBibliotecario()) return;
         Prestito sel = loansTable.getSelectionModel().getSelectedItem();
@@ -664,7 +581,6 @@ public class ContentManager {
         else showError("Impossibile registrare la restituzione.");
     }
 
-    // Calcolo dei libri disponibili (meno prestiti attivi).
     private List<Book> libriDisponibili() {
         List<Book> tutti = ui.listBooks();
         java.util.Map<Long, Long> attivi = ui.listActiveLoans().stream()
@@ -675,19 +591,16 @@ public class ContentManager {
                 .toList();
     }
 
-    // Dialogo di scelta libro.
     private java.util.Optional<Book> chooseBook(List<Book> disponibili) {
         SelectBookDialog selectBook = new SelectBookDialog(disponibili);
         return selectBook.showAndWait();
     }
 
-    // Dialogo di scelta utente.
     private java.util.Optional<Utente> chooseUser() {
         SelectUserDialog selectUser = new SelectUserDialog(ui.users(), this::aggiornaUtenti);
         return selectUser.showAndWait();
     }
 
-    // Conferma prestito: costruisco PrestitoBean nella dialog e mando alla facade.
     private void confirmPrestito(Book book, Utente user) {
         PrestitoDialog dlg = new PrestitoDialog(book, user);
         dlg.showAndWait().ifPresent(bean -> {
@@ -705,7 +618,6 @@ public class ContentManager {
         });
     }
 
-    // Applico il predicato alla lista prestiti in base a filtro + testo ricerca.
     private void applyLoansPredicate() {
         if (loansFiltered == null) return;
         String filter = cmbLoanFilter != null ? cmbLoanFilter.getSelectionModel().getSelectedItem() : TUTTI;
@@ -713,7 +625,6 @@ public class ContentManager {
         loansFiltered.setPredicate(p -> matchesLoanFilter(p, filter) && matchesLoanQuery(p, q));
     }
 
-    // Predicato: prestito attivo/non attivo/tutti.
     private boolean matchesLoanFilter(Prestito p, String filter) {
         boolean isActive = p.getDataRestituzione() == null;
         if (TUTTI.equals(filter)) return true;
@@ -721,7 +632,6 @@ public class ContentManager {
         return !isActive;
     }
 
-    // Predicato: testo di ricerca sui campi principali del prestito.
     private boolean matchesLoanQuery(Prestito p, String q) {
         if (q.isBlank()) return true;
         String idStr = p.getId() != null ? String.valueOf(p.getId()) : "";
@@ -732,7 +642,6 @@ public class ContentManager {
         return idStr.contains(q) || libro.contains(q) || utente.contains(q) || dp.contains(q) || dr.contains(q);
     }
 
-    // Refresh tabella prestiti.
     private void aggiornaPrestiti() {
         try {
             List<Prestito> prestiti = ui.listLoans();
@@ -744,26 +653,25 @@ public class ContentManager {
         }
     }
 
-    // Sezione “I miei prestiti”: simile alla precedente, ma filtrata per tessera utente corrente.
     public void mostraMieiPrestiti() {
         ensureMyLoansTab();
         tabPane.getSelectionModel().select(myLoansTab);
         aggiornaMieiPrestiti();
     }
 
-    // Costruisco la tab dei miei prestiti.
     private void buildMyLoansView() {
         myLoansRoot = new BorderPane();
         myLoansRoot.setPadding(new Insets(10));
 
         Button btnRefresh = new Button("Aggiorna");
+        btnExportMyLoans = new Button("Esporta CSV");
         cmbMyLoanFilter = new ComboBox<>();
         cmbMyLoanFilter.getItems().addAll(TUTTI, "In corso", "Conclusi");
         cmbMyLoanFilter.getSelectionModel().select(TUTTI);
         txtSearchMyLoans = new TextField();
         txtSearchMyLoans.setPromptText("Cerca nei miei prestiti...");
 
-        HBox toolbar = new HBox(10, btnRefresh, new Label(FILTRO), cmbMyLoanFilter, new Label(RICERCA), txtSearchMyLoans);
+        HBox toolbar = new HBox(10, btnRefresh, btnExportMyLoans, new Label(FILTRO), cmbMyLoanFilter, new Label(RICERCA), txtSearchMyLoans);
         toolbar.setPadding(new Insets(0, 0, 10, 0));
         toolbar.getStyleClass().add(TOOLBAR);
 
@@ -790,12 +698,12 @@ public class ContentManager {
         txtSearchMyLoans.textProperty().addListener((obs, o, v) -> applyMyLoansPredicate());
 
         btnRefresh.setOnAction(e -> aggiornaMieiPrestiti());
+        btnExportMyLoans.setOnAction(e -> exportMyLoansCsv());
 
         myLoansRoot.setTop(toolbar);
         myLoansRoot.setCenter(myLoansTable);
     }
 
-    // Predicati per i miei prestiti (filtro + ricerca).
     private void applyMyLoansPredicate() {
         if (myLoansFiltered == null) return;
         String filter = cmbMyLoanFilter != null ? cmbMyLoanFilter.getSelectionModel().getSelectedItem() : TUTTI;
@@ -819,7 +727,6 @@ public class ContentManager {
         return idStr.contains(q) || libro.contains(q) || dp.contains(q) || dr.contains(q);
     }
 
-    // Refresh dei miei prestiti: cerco l’utente con tessera della sessione e filtro.
     private void aggiornaMieiPrestiti() {
         try {
             Integer tess = SessionContext.getTessera();
@@ -855,7 +762,6 @@ public class ContentManager {
         }
     }
 
-    // Sezione Utenti: come le altre, preparo tab, toolbar, tabella e azioni.
     public void mostraUtenti() {
         ensureUsersTab();
         tabPane.getSelectionModel().select(usersTab);
@@ -880,8 +786,10 @@ public class ContentManager {
         Button btnEdit = new Button("Modifica");
         Button btnDelete = new Button("Elimina");
         Button btnCred = new Button("Crea/Modifica credenziali");
+        btnExportUsers = new Button("Esporta CSV");
 
         HBox toolbar = buildUsersToolbar(btnAdd, btnEdit, btnDelete, btnCred);
+        toolbar.getChildren().add(3, btnExportUsers);
         initUsersTable();
         addBaseUserColumns();
         addAdminUserColumnsIfNeeded();
@@ -889,11 +797,12 @@ public class ContentManager {
         attachUserListeners();
         setupUserButtons(btnAdd, btnEdit, btnDelete, btnCred);
 
+        btnExportUsers.setOnAction(e -> exportUsersCsv());
+
         usersRoot.setTop(toolbar);
         usersRoot.setCenter(usersTable);
     }
 
-    // Toolbar per la sezione utenti: pulsanti + filtro + ricerca.
     private HBox buildUsersToolbar(Button btnAdd, Button btnEdit, Button btnDelete, Button btnCred) {
         txtSearchUsers = new TextField();
         txtSearchUsers.setPromptText("Cerca utenti...");
@@ -906,7 +815,6 @@ public class ContentManager {
         return toolbar;
     }
 
-    // Setup base tabella utenti.
     private void initUsersTable() {
         usersTable = new TableView<>();
         usersTable.setPlaceholder(new Label("Nessun utente"));
@@ -916,7 +824,6 @@ public class ContentManager {
         usersTable.setItems(usersSorted);
     }
 
-    // Colonne base utenti (viste da tutti).
     private void addBaseUserColumns() {
         TableColumn<Utente, Integer> tesseraCol = new TableColumn<>("Tessera");
         tesseraCol.setCellValueFactory(new PropertyValueFactory<>("tessera"));
@@ -934,7 +841,6 @@ public class ContentManager {
         scadCol.setCellValueFactory(new PropertyValueFactory<>("dataScadenza"));
         TableColumn<Utente, String> statoCol = new TableColumn<>("Stato");
         statoCol.setCellValueFactory(cell -> {
-            // Qui costruisco una stringa “Attivo/Inattivo” in base alla scadenza.
             Utente u = cell.getValue();
             LocalDate scad = u.getDataScadenza();
             boolean stato = scad != null && scad.isBefore(LocalDate.now());
@@ -948,7 +854,6 @@ public class ContentManager {
         usersTable.getColumns().setAll(tesseraCol, nomeCol, cognomeCol, emailCol, telCol, attCol, scadCol, statoCol);
     }
 
-    // Colonne extra visibili solo all’Admin (username/password “mascherata”).
     private void addAdminUserColumnsIfNeeded() {
         if (!SessionContext.isAdmin()) return;
         TableColumn<Utente, String> usernameCol = new TableColumn<>("Username");
@@ -956,8 +861,7 @@ public class ContentManager {
             Utente u = cell.getValue();
             String username = "";
             try { if (u != null && u.getId() != null) username = ui.getUsernameForUserId(u.getId()).orElse(""); }
-            catch (Exception _) { // vuoto
-            }
+            catch (Exception _) { }
             return new ReadOnlyStringWrapper(username);
         });
         TableColumn<Utente, String> passwordCol = new TableColumn<>("Password");
@@ -965,13 +869,11 @@ public class ContentManager {
         usersTable.getColumns().addAll(usernameCol, passwordCol);
     }
 
-    // Listener per filtro e ricerca utenti.
     private void attachUserListeners() {
         txtSearchUsers.textProperty().addListener((obs, o, v) -> applyUsersPredicate());
         cmbUserFilter.valueProperty().addListener((obs, o, v) -> applyUsersPredicate());
     }
 
-    // Pulsanti CRUD utenti + credenziali (azioni smistate su metodi dedicati).
     private void setupUserButtons(Button btnAdd, Button btnEdit, Button btnDelete, Button btnCred) {
         btnAdd.setOnAction(e -> handleAddUser());
         btnEdit.setOnAction(e -> handleEditUser());
@@ -1025,13 +927,11 @@ public class ContentManager {
         });
     }
 
-    // Mini helper: controllo ruolo Admin prima di toccare le credenziali.
     private boolean ensureAdmin() {
         if (!SessionContext.isAdmin()) { showError("Solo Admin può gestire le credenziali."); return false; }
         return true;
     }
 
-    // Salvataggio credenziali: se esiste già un username non vuoto, faccio update; altrimenti create.
     private boolean saveCredentials(Long userId, String existingUsername, String username, String password) {
         try {
             if (existingUsername != null && !existingUsername.isBlank()) {
@@ -1044,7 +944,6 @@ public class ContentManager {
         }
     }
 
-    // Filtro utenti: parte di stato (attivo/inattivo) + testo ricerca.
     private void applyUsersPredicate() {
         if (usersFiltered == null) return;
         String stato = (cmbUserFilter != null && cmbUserFilter.getSelectionModel().getSelectedItem() != null)
@@ -1079,7 +978,6 @@ public class ContentManager {
         return tessera.contains(s) || nome.contains(s) || cognome.contains(s) || email.contains(s) || tel.contains(s) || att.contains(s) || scad.contains(s) || stato.contains(s);
     }
 
-    // Refresh tabella utenti.
     private void aggiornaUtenti() {
         try {
             List<Utente> utenti = ui.listUsers();
@@ -1091,7 +989,6 @@ public class ContentManager {
         }
     }
 
-    // Tab profilo personale dell’utente corrente (solo per ruolo UTENTE).
     public void mostraProfiloUtente() {
         if (!SessionContext.isUtente()) { showError("Profilo disponibile solo per utenti autenticati."); return; }
         if (profileTab == null) {
@@ -1110,7 +1007,6 @@ public class ContentManager {
         tabPane.getSelectionModel().select(profileTab);
     }
 
-    // Utility: cerco l’utente in base alla tessera memorizzata in sessione.
     private Utente findUserByTessera(Integer tess) {
         if (tess == null) return null;
         List<Utente> all = ui.listUsers();
@@ -1120,7 +1016,6 @@ public class ContentManager {
         return null;
     }
 
-    // Costruisco il box con i dati del profilo (in sola lettura).
     private VBox buildProfileBox(Utente ut) {
         VBox box = new VBox(8);
         box.setPadding(new Insets(10));
@@ -1140,22 +1035,18 @@ public class ContentManager {
         return box;
     }
 
-    // Helper per gestire stringhe potenzialmente null.
     private String safe(String s) { return s != null ? s : ""; }
 
-    // Dialog informativa standard.
     private void showInfo(String msg) {
         Alert a = new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK);
         a.setHeaderText(null); a.setTitle("Informazione"); a.showAndWait();
     }
 
-    // Dialog errore standard.
     private void showError(String msg) {
         Alert a = new Alert(Alert.AlertType.ERROR, msg, ButtonType.OK);
         a.setHeaderText(null); a.setTitle("Errore"); a.showAndWait();
     }
 
-    // Assicuro che la tab “I miei prestiti” esista e sia agganciata alla TabPane.
     private void ensureMyLoansTab() {
         if (myLoansTab == null) {
             myLoansTab = new Tab("I miei prestiti");
@@ -1166,14 +1057,6 @@ public class ContentManager {
         if (!tabPane.getTabs().contains(myLoansTab)) tabPane.getTabs().add(myLoansTab);
     }
 
-    /**
-     * Gestione tema:
-     * Ho spacchettato in più metodi per tenerla leggibile:
-     *  - updateRootStyleClass: mette la classe giusta sulla root (per eventuali CSS mirati)
-     *  - applyThemeToScene: aggiunge il foglio di stile alla scene (se presente)
-     *  - applyThemeWithoutScene: fallback quando la scene non è ancora pronta
-     *  - applyInlineFallback: ultimo fallback con stile inline (solo colori di base)
-     */
     private void applyTheme() {
         if (rootContainer == null) return;
         updateRootStyleClass();
@@ -1219,10 +1102,63 @@ public class ContentManager {
         }
     }
 
-    // Utility per tornare rapidamente alla Home.
     public void mostraHome() {
         if (tabPane != null && homeTab != null) {
             tabPane.getSelectionModel().select(homeTab);
         }
+    }
+
+    // ====== EXPORT ======
+
+    private void exportCatalogCsv() {
+        File f = chooseCsvFile("Esporta catalogo", "catalogo.csv");
+        if (f == null) return;
+        try {
+            CsvExporter.exportBooks(catalogData != null ? catalogData : java.util.Collections.emptyList(), f);
+            showInfo("Catalogo esportato in:\n" + f.getAbsolutePath());
+        } catch (Exception ex) {
+            showError("Errore esportazione catalogo: " + ex.getMessage());
+        }
+    }
+
+    private void exportLoansCsv() {
+        File f = chooseCsvFile("Esporta prestiti", "prestiti.csv");
+        if (f == null) return;
+        try {
+            CsvExporter.exportLoans(loansData != null ? loansData : java.util.Collections.emptyList(), f);
+            showInfo("Prestiti esportati in:\n" + f.getAbsolutePath());
+        } catch (Exception ex) {
+            showError("Errore esportazione prestiti: " + ex.getMessage());
+        }
+    }
+
+    private void exportUsersCsv() {
+        File f = chooseCsvFile("Esporta utenti", "utenti.csv");
+        if (f == null) return;
+        try {
+            CsvExporter.exportUsers(usersData != null ? usersData : java.util.Collections.emptyList(), f);
+            showInfo("Utenti esportati in:\n" + f.getAbsolutePath());
+        } catch (Exception ex) {
+            showError("Errore esportazione utenti: " + ex.getMessage());
+        }
+    }
+
+    private void exportMyLoansCsv() {
+        File f = chooseCsvFile("Esporta i miei prestiti", "miei_prestiti.csv");
+        if (f == null) return;
+        try {
+            CsvExporter.exportLoans(myLoansData != null ? myLoansData : java.util.Collections.emptyList(), f);
+            showInfo("I tuoi prestiti sono stati esportati in:\n" + f.getAbsolutePath());
+        } catch (Exception ex) {
+            showError("Errore esportazione dei tuoi prestiti: " + ex.getMessage());
+        }
+    }
+
+    private File chooseCsvFile(String title, String defaultName) {
+        FileChooser fc = new FileChooser();
+        fc.setTitle(title);
+        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV (*.csv)", "*.csv"));
+        fc.setInitialFileName(defaultName);
+        return fc.showSaveDialog(rootContainer != null && rootContainer.getScene() != null ? rootContainer.getScene().getWindow() : null);
     }
 }
