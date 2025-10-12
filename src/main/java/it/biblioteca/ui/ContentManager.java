@@ -112,7 +112,8 @@ public class ContentManager {
     public void inizializzaContenuto(BorderPane root) {
         this.rootContainer = root;
 
-        while (true) {
+        boolean done = false;
+        while (!done) {
             StartupDialog dlg = new StartupDialog();
             Optional<StartupResult> res = dlg.showAndWait();
 
@@ -120,34 +121,33 @@ public class ContentManager {
                 Platform.exit();
                 return;
             }
+
             StartupResult r = res.get();
+            String error = null;
+
             if (!r.isValid()) {
-                showError("Compila tutti i campi richiesti.");
-                continue;
+                error = "Compila tutti i campi richiesti.";
+            } else if (!it.biblioteca.db.DatabaseConfig.testCredentials(r.getUsername(), r.getPassword())) {
+                error = "Credenziali DB non valide. Riprova.";
+            } else {
+                it.biblioteca.db.DatabaseConfig.apply(r);
+                this.currentTheme = r.getTheme();
+                applyTheme();
+
+                AuthService.AuthResult ar = AuthService.authenticate(r.getAppUsername(), r.getAppPassword());
+                if (!ar.ok()) {
+                    error = "Credenziali applicative non valide. Riprova.";
+                } else {
+                    SessionContext.setRole(ar.role());
+                    SessionContext.setUserId(ar.userId());
+                    SessionContext.setTessera(ar.tessera());
+                    done = true;
+                }
             }
 
-            boolean okDb = it.biblioteca.db.DatabaseConfig.testCredentials(r.getUsername(), r.getPassword());
-            if (!okDb) {
-                showError("Credenziali DB non valide. Riprova.");
-                continue;
+            if (error != null) {
+                showError(error);
             }
-
-            it.biblioteca.db.DatabaseConfig.apply(r);
-
-            this.currentTheme = r.getTheme();
-            applyTheme();
-
-            AuthService.AuthResult ar = AuthService.authenticate(r.getAppUsername(), r.getAppPassword());
-            if (!ar.ok()) {
-                showError("Credenziali applicative non valide. Riprova.");
-                continue;
-            }
-
-            SessionContext.setRole(ar.role());
-            SessionContext.setUserId(ar.userId());
-            SessionContext.setTessera(ar.tessera());
-
-            break;
         }
 
         tabPane = new TabPane();

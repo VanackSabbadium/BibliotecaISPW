@@ -3,8 +3,9 @@ package it.biblioteca.events;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
-public class EventBus {
-    private static final EventBus INSTANCE = new EventBus();
+public enum EventBus {
+    INSTANCE;
+
     public static EventBus getDefault() { return INSTANCE; }
 
     private static final class Subscriber<T extends AppEvent> {
@@ -24,10 +25,14 @@ public class EventBus {
     public void publish(AppEvent event) {
         for (Subscriber<?> s : subscribers) {
             if (s.type.isInstance(event)) {
-                @SuppressWarnings("unchecked")
-                Consumer<AppEvent> c = (Consumer<AppEvent>) s.consumer;
-                c.accept(event);
+                notifySubscriber(s, event);
             }
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T extends AppEvent> void notifySubscriber(Subscriber<?> raw, AppEvent event) {
+        Subscriber<T> s = (Subscriber<T>) raw;
+        s.consumer.accept((T) event);
     }
 }
