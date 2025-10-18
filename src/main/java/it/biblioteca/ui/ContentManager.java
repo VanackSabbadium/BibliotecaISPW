@@ -864,7 +864,7 @@ public class ContentManager {
         btnExportUsers = new Button("Esporta CSV");
 
         HBox toolbar = buildUsersToolbar(btnAdd, btnEdit, btnDelete, btnCred);
-        // Inserisco Import/Export subito dopo 'Elimina' e prima di 'Crea/Modifica credenziali'
+        // Inserisco Import/Export subito dopo 'Elimina' e prima di 'Crea/Modifica credenziali' (o delle etichette filtro/ricerca)
         toolbar.getChildren().add(3, btnImportUsers);
         toolbar.getChildren().add(4, btnExportUsers);
 
@@ -888,7 +888,18 @@ public class ContentManager {
         cmbUserFilter = new ComboBox<>();
         cmbUserFilter.getItems().addAll(TUTTI, ATTIVI, "Inattivi");
         cmbUserFilter.getSelectionModel().select(TUTTI);
-        HBox toolbar = new HBox(10, btnAdd, btnEdit, btnDelete, btnCred, new Label(FILTRO), cmbUserFilter, new Label(RICERCA), txtSearchUsers);
+
+        HBox toolbar;
+        if (SessionContext.isAdmin()) {
+            // Solo l'ADMIN vede il pulsante credenziali
+            toolbar = new HBox(10, btnAdd, btnEdit, btnDelete, btnCred, new Label(FILTRO), cmbUserFilter, new Label(RICERCA), txtSearchUsers);
+        } else {
+            // Bibliotecario e altri NON vedono il pulsante credenziali
+            btnCred.setManaged(false);
+            btnCred.setVisible(false);
+            toolbar = new HBox(10, btnAdd, btnEdit, btnDelete, new Label(FILTRO), cmbUserFilter, new Label(RICERCA), txtSearchUsers);
+        }
+
         toolbar.setPadding(new Insets(0, 0, 10, 0));
         toolbar.getStyleClass().add(TOOLBAR);
         return toolbar;
@@ -960,6 +971,7 @@ public class ContentManager {
         btnAdd.setOnAction(e -> handleAddUser());
         btnEdit.setOnAction(e -> handleEditUser());
         btnDelete.setOnAction(e -> handleDeleteUser());
+        // Il pulsante è visibile solo per Admin; comunque proteggo anche l'handler
         btnCred.setOnAction(e -> handleCredentials());
     }
 
@@ -993,7 +1005,9 @@ public class ContentManager {
     }
 
     private void handleCredentials() {
-        if (!ensureBibliotecarioOrAdmin()) return;
+        // *** SOLO ADMIN ***
+        if (!SessionContext.isAdmin()) { showError("Solo Admin può gestire le credenziali."); return; }
+
         Utente sel = usersTable.getSelectionModel().getSelectedItem();
         if (sel == null) { showError("Seleziona un utente per associare le credenziali."); return; }
         java.util.Optional<String> existing;

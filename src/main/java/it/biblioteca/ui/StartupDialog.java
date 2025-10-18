@@ -1,75 +1,102 @@
 package it.biblioteca.ui;
 
+import it.biblioteca.ui.ContentManager.Theme;
 import javafx.geometry.Insets;
-import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
+import javafx.util.Pair;
 
 public class StartupDialog extends Dialog<StartupResult> {
 
+    private static final String DEFAULT_DB_USER = "Admin";
+    private static final String DEFAULT_DB_PASS = "admin";
+
+    private final TextField txtAppUser = new TextField();
+    private final PasswordField txtAppPass = new PasswordField();
+
+    // campi DB tenuti ma NON visualizzati (gestiti internamente con default)
+    private final TextField txtDbUser = new TextField(DEFAULT_DB_USER);
+    private final PasswordField txtDbPass = new PasswordField();
+
+    private final ToggleGroup themeGroup = new ToggleGroup();
+
     public StartupDialog() {
-        setTitle("Avvio - Configurazione");
-        setHeaderText("Configurazione DB e login applicativo");
+        setTitle("Accesso");
+        setHeaderText("Seleziona tema e inserisci le credenziali applicative");
 
-        getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        txtDbPass.setText(DEFAULT_DB_PASS);
 
-        GridPane grid = new GridPane();
-        grid.setHgap(8);
-        grid.setVgap(8);
-        grid.setPadding(new Insets(10));
+        GridPane form = new GridPane();
+        form.setHgap(10);
+        form.setVgap(10);
+        form.setPadding(new Insets(16));
 
-        TextField dbUser = new TextField("Admin");
-        dbUser.setDisable(true);
-        PasswordField dbPass = new PasswordField();
-        dbPass.setText("admin");
-        dbPass.setDisable(true);
+        int r = 0;
 
-        TextField appUser = new TextField();
-        appUser.setPromptText("username applicativo");
-        PasswordField appPass = new PasswordField();
-        appPass.setPromptText("password applicativa");
+        Label lTheme = new Label("Tema:");
+        RadioButton rbColori = new RadioButton("Colori");
+        rbColori.setToggleGroup(themeGroup);
+        rbColori.setSelected(true);
+        RadioButton rbBw = new RadioButton("Bianco/Nero");
+        rbBw.setToggleGroup(themeGroup);
 
-        ComboBox<ContentManager.Theme> cmbTheme = new ComboBox<>();
-        cmbTheme.getItems().addAll(ContentManager.Theme.COLORI, ContentManager.Theme.BIANCO_NERO);
-        cmbTheme.getSelectionModel().select(ContentManager.Theme.COLORI);
+        form.add(lTheme, 0, r);
+        form.add(new HBox(12, rbColori, rbBw), 1, r++);
+        form.add(new Label("Utente app:"), 0, r);
+        form.add(txtAppUser, 1, r++);
+        form.add(new Label("Password app:"), 0, r);
+        form.add(txtAppPass, 1, r++);
 
-        grid.add(new Label("DB Username:"), 0, 0);
-        grid.add(dbUser, 1, 0);
-        grid.add(new Label("DB Password:"), 0, 1);
-        grid.add(dbPass, 1, 1);
+        // campi DB non visualizzati (managed=false & visible=false)
+        Label lDbUser = new Label("DB User:");
+        Label lDbPass = new Label("DB Pass:");
+        lDbUser.setManaged(false); lDbUser.setVisible(false);
+        lDbPass.setManaged(false); lDbPass.setVisible(false);
+        txtDbUser.setManaged(false); txtDbUser.setVisible(false);
+        txtDbPass.setManaged(false); txtDbPass.setVisible(false);
 
-        grid.add(new Label("Username (app):"), 0, 2);
-        grid.add(appUser, 1, 2);
-        grid.add(new Label("Password (app):"), 0, 3);
-        grid.add(appPass, 1, 3);
+        form.add(lDbUser, 0, r);
+        form.add(txtDbUser, 1, r++);
+        form.add(lDbPass, 0, r);
+        form.add(txtDbPass, 1, r++);
 
-        grid.add(new Label("Tema:"), 0, 4);
-        grid.add(cmbTheme, 1, 4);
+        getDialogPane().setContent(form);
 
-        getDialogPane().setContent(grid);
+        ButtonType okType = new ButtonType("Entra", ButtonBar.ButtonData.OK_DONE);
+        getDialogPane().getButtonTypes().addAll(okType, ButtonType.CANCEL);
 
-        Node okButton = getDialogPane().lookupButton(ButtonType.OK);
-        okButton.setDisable(true);
-
-        Runnable validate = () -> okButton.setDisable(
-                appUser.getText() == null || appUser.getText().trim().isEmpty()
-                        || appPass.getText() == null || appPass.getText().trim().isEmpty()
-        );
-        appUser.textProperty().addListener((obs, o, n) -> validate.run());
-        appPass.textProperty().addListener((obs, o, n) -> validate.run());
-        validate.run();
+        Button okBtn = (Button) getDialogPane().lookupButton(okType);
+        okBtn.addEventFilter(javafx.event.ActionEvent.ACTION, ev -> {
+            String au = txtAppUser.getText() == null ? "" : txtAppUser.getText().trim();
+            String ap = txtAppPass.getText() == null ? "" : txtAppPass.getText().trim();
+            if (au.isBlank() || ap.isBlank()) {
+                Alert a = new Alert(Alert.AlertType.ERROR, "Inserisci le credenziali applicative.", ButtonType.OK);
+                a.setHeaderText(null);
+                a.setTitle("Errore");
+                a.showAndWait();
+                ev.consume();
+            }
+        });
 
         setResultConverter(bt -> {
-            if (bt == ButtonType.OK) {
-                return new StartupResult(
-                        dbUser.getText(),                // username DB (Admin)
-                        dbPass.getText(),                // password DB
-                        appUser.getText().trim(),        // username applicativo
-                        appPass.getText(),               // password applicativa
-                        cmbTheme.getValue()              // tema
-                );
-            }
-            return null;
+            if (bt != okType) return null;
+            Theme theme = themeGroup.getSelectedToggle() == rbBw ? Theme.BIANCO_NERO : Theme.COLORI;
+
+            // Costruiamo StartupResult con DB default interni e credenziali app inserite
+            return new StartupResult(
+                    txtDbUser.getText(),              // DB username (nascosto, default)
+                    txtDbPass.getText(),              // DB password (nascosto, default)
+                    txtAppUser.getText().trim(),      // app username
+                    txtAppPass.getText().trim(),      // app password
+                    theme
+            );
         });
+    }
+
+    // piccolo contenitore comodo per i due radio affiancati
+    private static final class HBox extends javafx.scene.layout.HBox {
+        HBox(double spacing, RadioButton a, RadioButton b) {
+            super(spacing, a, b);
+        }
     }
 }

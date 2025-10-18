@@ -3,49 +3,50 @@ package it.biblioteca.ui;
 import it.biblioteca.bean.PrestitoBean;
 import it.biblioteca.entity.Book;
 import it.biblioteca.entity.Utente;
+import it.biblioteca.validation.ValidationUtils;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
+/**
+ * Dialog di conferma prestito.
+ * Valida con ValidationUtils che la Data Prestito sia presente.
+ */
 public class PrestitoDialog extends Dialog<PrestitoBean> {
 
-    private final DatePicker dpDataPrestito = new DatePicker(LocalDate.now());
+    private final DatePicker dpDataPrestito = new DatePicker();
 
     public PrestitoDialog(Book selectedBook, Utente selectedUser) {
+
         setTitle("Conferma Prestito");
         setHeaderText("Verifica i dati e conferma il prestito");
 
-        String titoloLibro = safeTitle(selectedBook);
-        String utenteDisplay = displayUser(selectedUser);
-        String utenteSnapshot = safeName(selectedUser);
-
-        GridPane form = buildForm(titoloLibro, utenteDisplay);
-        getDialogPane().setContent(form);
-
-        ButtonType okType = new ButtonType("Conferma", ButtonBar.ButtonData.OK_DONE);
-        getDialogPane().getButtonTypes().addAll(okType, ButtonType.CANCEL);
-
-        Button okBtn = (Button) getDialogPane().lookupButton(okType);
-        setupValidation(okBtn);
-
-        setResultConverter(bt -> bt == okType ? buildBean(selectedBook, selectedUser, titoloLibro, utenteSnapshot) : null);
-    }
-
-    private GridPane buildForm(String titoloLibro, String utenteDisplay) {
+        // Form
         GridPane form = new GridPane();
         form.setHgap(10);
         form.setVgap(10);
         form.setPadding(new Insets(15));
 
-        TextField txtLibro = new TextField(titoloLibro);
+        int r = 0;
+        TextField txtLibro = new TextField();
         txtLibro.setEditable(false);
-        TextField txtUtente = new TextField(utenteDisplay);
+        TextField txtUtente = new TextField();
         txtUtente.setEditable(false);
+
+        String titoloLibro = selectedBook != null && selectedBook.getTitolo() != null ? selectedBook.getTitolo() : "";
+        String nome = selectedUser != null && selectedUser.getNome() != null ? selectedUser.getNome() : "";
+        String cognome = selectedUser != null && selectedUser.getCognome() != null ? selectedUser.getCognome() : "";
+        Integer tessera = selectedUser != null ? selectedUser.getTessera() : null;
+        String utenteDisplay = (nome + " " + cognome).trim() + (tessera != null ? " (Tessera: " + tessera + ")" : "");
+
+        txtLibro.setText(titoloLibro);
+        txtUtente.setText(utenteDisplay);
         dpDataPrestito.setPromptText("Data prestito");
 
-        int r = 0;
         form.add(new Label("Libro:"), 0, r);
         form.add(txtLibro, 1, r++);
         form.add(new Label("Utente:"), 0, r);
@@ -53,55 +54,46 @@ public class PrestitoDialog extends Dialog<PrestitoBean> {
         form.add(new Label("Data prestito:"), 0, r);
         form.add(dpDataPrestito, 1, r++);
 
-        return form;
-    }
+        getDialogPane().setContent(form);
 
-    private void setupValidation(Button okBtn) {
+        ButtonType okType = new ButtonType("Conferma", ButtonBar.ButtonData.OK_DONE);
+        getDialogPane().getButtonTypes().addAll(okType, ButtonType.CANCEL);
+
+        // Validazione centralizzata su conferma
+        Button okBtn = (Button) getDialogPane().lookupButton(okType);
         okBtn.addEventFilter(javafx.event.ActionEvent.ACTION, ev -> {
-            if (dpDataPrestito.getValue() == null) {
-                showError();
+            List<String> errors = new ArrayList<>();
+            ValidationUtils.requireNotNull(dpDataPrestito.getValue(), "Data prestito", errors);
+            if (!errors.isEmpty()) {
+                showError(String.join("\n", errors));
                 ev.consume();
             }
         });
+
+        setResultConverter(bt -> {
+            if (bt != okType) return null;
+
+            PrestitoBean bean = new PrestitoBean();
+            // Riferimenti
+            bean.setLibroId(selectedBook != null ? selectedBook.getId() : null);
+            bean.setUtenteId(selectedUser != null ? selectedUser.getId() : null);
+
+            // Snapshot
+            bean.setLibroTitoloSnapshot(titoloLibro);
+            bean.setUtenteSnapshot((nome + " " + cognome).trim());
+
+            // Data
+            LocalDate dp = dpDataPrestito.getValue() != null ? dpDataPrestito.getValue() : LocalDate.now();
+            bean.setDataPrestito(dp);
+
+            return bean;
+        });
     }
 
-    private PrestitoBean buildBean(Book b, Utente u, String titoloLibro, String utenteSnapshot) {
-        PrestitoBean bean = new PrestitoBean();
-        bean.setLibroId(b != null ? b.getId() : null);
-        bean.setUtenteId(u != null ? u.getId() : null);
-        bean.setLibroTitoloSnapshot(titoloLibro);
-        bean.setUtenteSnapshot(utenteSnapshot);
-        LocalDate dp = dpDataPrestito.getValue() != null ? dpDataPrestito.getValue() : LocalDate.now();
-        bean.setDataPrestito(dp);
-        return bean;
-    }
-
-    private static String safeTitle(Book b) {
-        return b != null && b.getTitolo() != null ? b.getTitolo() : "";
-    }
-
-    private static String safe(String s) {
-        return s != null ? s : "";
-    }
-
-    private static String safeName(Utente u) {
-        if (u == null) return "";
-        String nome = safe(u.getNome());
-        String cognome = safe(u.getCognome());
-        return (nome + " " + cognome).trim();
-    }
-
-    private static String displayUser(Utente u) {
-        if (u == null) return "";
-        String base = safeName(u);
-        Integer tess = u.getTessera();
-        return tess != null ? base + " (Tessera: " + tess + ")" : base;
-    }
-
-
-    private void showError() {
-        Alert a = new Alert(Alert.AlertType.ERROR, "La data del prestito è obbligatoria.", ButtonType.OK);
+    private void showError(String msg) {
+        Alert a = new Alert(Alert.AlertType.ERROR, msg, ButtonType.OK);
         a.setHeaderText(null);
+        a.setTitle("Errore di validazione");
         a.showAndWait();
     }
 }
