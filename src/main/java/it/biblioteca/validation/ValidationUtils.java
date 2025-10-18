@@ -10,7 +10,21 @@ import java.util.regex.Pattern;
  */
 public final class ValidationUtils {
 
-    private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    /**
+     * Nota sicurezza:
+     * - Limitiamo la lunghezza massima dell'email per prevenire input patologici (DoS).
+     * - La regex utilizza quantificatori possessivi (++) e gruppi atomici (?>...) per evitare backtracking.
+     * - La validazione resta volutamente "semplice" e non mira a coprire tutti i casi RFC.
+     */
+    private static final int MAX_EMAIL_LENGTH = 254;
+
+    // Gruppi atomici + quantificatori possessivi per evitare backtracking: username @ dominio . TLD
+    // username:  [A-Za-z0-9._%+-]+
+    // dominio:   [A-Za-z0-9.-]+
+    // TLD:       [A-Za-z]{2,63}
+    private static final Pattern EMAIL = Pattern.compile(
+            "^(?>[A-Za-z0-9._%+-]++)@(?>[A-Za-z0-9.-]++)\\.(?>[A-Za-z]{2,63})$"
+    );
 
     private ValidationUtils() {}
 
@@ -44,7 +58,16 @@ public final class ValidationUtils {
     /** Valida il formato email solo se presente (non obbligatoria). */
     public static void validateEmailIfPresent(String email, List<String> errors) {
         if (email == null || email.isBlank()) return;
+
         String e = email.trim();
+
+        // Bound di lunghezza per mitigare ReDoS: evita input eccessivi alla regex.
+        if (e.length() > MAX_EMAIL_LENGTH) {
+            errors.add("Email troppo lunga (max " + MAX_EMAIL_LENGTH + " caratteri).");
+            return;
+        }
+
+        // Match con regex non backtracking (possessiva/atomica)
         if (!EMAIL.matcher(e).matches()) {
             errors.add("Email non valida.");
         }
