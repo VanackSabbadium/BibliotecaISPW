@@ -1,8 +1,6 @@
-/* Theme-color.css — versione estesa e retro-compatibile
-   - Mantiene le tue impostazioni iniziali
-   - Aggiunge palette più ampia e varianti di componenti
-   - Non rompe il codice esistente
-*/
+/* theme-color.css — JavaFX theme con palette estesa
+   Nota: SonarCSS non conosce i pseudo-stati JavaFX (:focused, :pressed, :selected, :vertical, :horizontal).
+   Li manteniamo per funzionalità e aggiungiamo commenti `NOSONAR` per sopprimere gli avvisi del linter. */
 
 /* === TUE REGOLE ORIGINALI (lasciate intatte) === */
 .root {
@@ -16,7 +14,7 @@
 .button {
     -fx-background-radius: 4;
 }
-.button:default {
+.button:default { /* NOSONAR: JavaFX pseudo-class */
     -fx-background-color: -fx-accent;
     -fx-text-fill: white;
 }
@@ -83,7 +81,7 @@
     -fx-border-width: 1;
 }
 .text-field:focused, .password-field:focused, .text-area:focused,
-.combo-box-base:focused, .choice-box:focused {
+.combo-box-base:focused, .choice-box:focused { /* NOSONAR: JavaFX pseudo-class */
     -fx-border-color: -color-primary;
     -fx-border-width: 2;
 }
@@ -98,7 +96,7 @@
 .button:hover {
     -fx-background-color: -color-surface;
 }
-.button:pressed {
+.button:pressed { /* NOSONAR: JavaFX pseudo-class */
     -fx-background-color: derive(-color-surface, -10%);
 }
 
@@ -109,7 +107,7 @@
     -fx-border-color: transparent;
 }
 .button.btn-primary:hover   { -fx-background-color: derive(-color-primary, -7%); }
-.button.btn-primary:pressed { -fx-background-color: derive(-color-primary, -14%); }
+.button.btn-primary:pressed { -fx-background-color: derive(-color-primary, -14%); } /* NOSONAR: JavaFX pseudo-class */
 
 .button.btn-secondary {
     -fx-background-color: -color-secondary;
@@ -117,7 +115,7 @@
     -fx-border-color: transparent;
 }
 .button.btn-secondary:hover   { -fx-background-color: derive(-color-secondary, -7%); }
-.button.btn-secondary:pressed { -fx-background-color: derive(-color-secondary, -14%); }
+.button.btn-secondary:pressed { -fx-background-color: derive(-color-secondary, -14%); } /* NOSONAR: JavaFX pseudo-class */
 
 .button.btn-success {
     -fx-background-color: -color-success;
@@ -125,7 +123,7 @@
     -fx-border-color: transparent;
 }
 .button.btn-success:hover   { -fx-background-color: derive(-color-success, -7%); }
-.button.btn-success:pressed { -fx-background-color: derive(-color-success, -14%); }
+.button.btn-success:pressed { -fx-background-color: derive(-color-success, -14%); } /* NOSONAR: JavaFX pseudo-class */
 
 .button.btn-warning {
     -fx-background-color: -color-warning;
@@ -133,7 +131,7 @@
     -fx-border-color: transparent;
 }
 .button.btn-warning:hover   { -fx-background-color: derive(-color-warning, -7%); }
-.button.btn-warning:pressed { -fx-background-color: derive(-color-warning, -14%); }
+.button.btn-warning:pressed { -fx-background-color: derive(-color-warning, -14%); } /* NOSONAR: JavaFX pseudo-class */
 
 .button.btn-danger {
     -fx-background-color: -color-danger;
@@ -141,7 +139,7 @@
     -fx-border-color: transparent;
 }
 .button.btn-danger:hover   { -fx-background-color: derive(-color-danger, -7%); }
-.button.btn-danger:pressed { -fx-background-color: derive(-color-danger, -14%); }
+.button.btn-danger:pressed { -fx-background-color: derive(-color-danger, -14%); } /* NOSONAR: JavaFX pseudo-class */
 
 /* Varianti outline (mantengono l’idea dei “bordini”) */
 .button.btn-outline-primary {
@@ -166,7 +164,7 @@
 .table-row-cell:hover {
     -fx-background-color: derive(-color-surface, 6%);
 }
-.table-row-cell:selected {
+.table-row-cell:selected { /* NOSONAR: JavaFX pseudo-class */
     -fx-background-color: -fx-selection-bar;
     -fx-text-fill: -fx-selection-bar-text;
 }
@@ -178,7 +176,7 @@
     -fx-border-color: -color-border;
     -fx-border-width: 1 1 0 1;
 }
-.tab-pane .tab-header-area .tab:selected {
+.tab-pane .tab-header-area .tab:selected { /* NOSONAR: JavaFX pseudo-class */
     -fx-background-color: derive(-color-primary, 50%);
     -fx-text-base-color: -color-text;
 }
@@ -210,7 +208,7 @@
 .chip.danger  { -fx-background-color: derive(-color-danger, 40%);  -fx-border-color: derive(-color-danger, -10%); }
 
 /* Scrollbar più discreta */
-.scroll-bar:vertical .thumb, .scroll-bar:horizontal .thumb {
+.scroll-bar:vertical .thumb, .scroll-bar:horizontal .thumb { /* NOSONAR: JavaFX pseudo-class */
     -fx-background-color: derive(-color-surface, 25%);
     -fx-background-radius: 999;
 }
