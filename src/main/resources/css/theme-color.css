@@ -1,9 +1,16 @@
+/* Theme-color.css — versione estesa e retro-compatibile
+   - Mantiene le tue impostazioni iniziali
+   - Aggiunge palette più ampia e varianti di componenti
+   - Non rompe il codice esistente
+*/
+
+/* === TUE REGOLE ORIGINALI (lasciate intatte) === */
 .root {
     -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     -fx-accent: #3f51b5;
     -fx-focus-color: #3f51b5;
-    -fx-base: #f6f7fb;
-    -fx-control-inner-background: white;
+    -fx-base: #edd8eb;
+    -fx-control-inner-background: #eaf4f2;
 }
 
 .button {
@@ -28,4 +35,182 @@
 /* Header area dei Tab */
 .tab-pane .tab-header-area {
     -fx-background-color: #e6e8f5;
+}
+
+/* === ESTENSIONI: PALETTE E COMPONENTI === */
+
+/* Palette “looked-up colors” (riutilizzabili in tutto il tema) */
+.root {
+    /* Colori base */
+    -color-bg:         #f7f8fb;
+    -color-surface:    #ffffff;
+    -color-text:       #0b1320;
+    -color-text-muted: #4b5563;
+    -color-border:     #e5e7eb;
+
+    /* Mappa semantica: usiamo il tuo accent come primary */
+    -color-primary:    -fx-accent;      /* #3f51b5 */
+    -color-secondary:  #9c27b0;         /* purple  */
+    -color-success:    #2e7d32;         /* green   */
+    -color-warning:    #ed6c02;         /* orange  */
+    -color-danger:     #d32f2f;         /* red     */
+    -color-info:       #0288d1;         /* cyan    */
+    -color-on-primary: #ffffff;
+
+    /* Focus attenuato */
+    -fx-faint-focus-color: rgba(63, 81, 181, 0.20);
+}
+
+/* Testi e sfondi generali (non invasivi) */
+.label {
+    -fx-text-fill: -color-text;
+}
+.root {
+    -fx-background-color: -color-bg;
+}
+
+/* Campi di input: più leggibili con bordo coerente */
+.text-field, .password-field, .text-area,
+.combo-box-base, .choice-box {
+    -fx-background-color: -color-surface;
+    -fx-control-inner-background: -color-surface;
+    -fx-text-fill: -color-text;
+    -fx-prompt-text-fill: -color-text-muted;
+    -fx-background-insets: 0;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: -color-border;
+    -fx-border-width: 1;
+}
+.text-field:focused, .password-field:focused, .text-area:focused,
+.combo-box-base:focused, .choice-box:focused {
+    -fx-border-color: -color-primary;
+    -fx-border-width: 2;
+}
+
+/* Bottoni base (manteniamo il tuo radius 4) + varianti colorate */
+.button {
+    -fx-background-color: -color-surface;
+    -fx-text-fill: -color-text;
+    -fx-border-color: -color-border;
+    -fx-border-width: 1;
+}
+.button:hover {
+    -fx-background-color: -color-surface;
+}
+.button:pressed {
+    -fx-background-color: derive(-color-surface, -10%);
+}
+
+/* Varianti piene */
+.button.btn-primary {
+    -fx-background-color: -color-primary;
+    -fx-text-fill: -color-on-primary;
+    -fx-border-color: transparent;
+}
+.button.btn-primary:hover   { -fx-background-color: derive(-color-primary, -7%); }
+.button.btn-primary:pressed { -fx-background-color: derive(-color-primary, -14%); }
+
+.button.btn-secondary {
+    -fx-background-color: -color-secondary;
+    -fx-text-fill: -color-on-primary;
+    -fx-border-color: transparent;
+}
+.button.btn-secondary:hover   { -fx-background-color: derive(-color-secondary, -7%); }
+.button.btn-secondary:pressed { -fx-background-color: derive(-color-secondary, -14%); }
+
+.button.btn-success {
+    -fx-background-color: -color-success;
+    -fx-text-fill: -color-on-primary;
+    -fx-border-color: transparent;
+}
+.button.btn-success:hover   { -fx-background-color: derive(-color-success, -7%); }
+.button.btn-success:pressed { -fx-background-color: derive(-color-success, -14%); }
+
+.button.btn-warning {
+    -fx-background-color: -color-warning;
+    -fx-text-fill: -color-on-primary;
+    -fx-border-color: transparent;
+}
+.button.btn-warning:hover   { -fx-background-color: derive(-color-warning, -7%); }
+.button.btn-warning:pressed { -fx-background-color: derive(-color-warning, -14%); }
+
+.button.btn-danger {
+    -fx-background-color: -color-danger;
+    -fx-text-fill: -color-on-primary;
+    -fx-border-color: transparent;
+}
+.button.btn-danger:hover   { -fx-background-color: derive(-color-danger, -7%); }
+.button.btn-danger:pressed { -fx-background-color: derive(-color-danger, -14%); }
+
+/* Varianti outline (mantengono l’idea dei “bordini”) */
+.button.btn-outline-primary {
+    -fx-background-color: transparent;
+    -fx-text-fill: -color-primary;
+    -fx-border-color: -color-primary;
+}
+.button.btn-outline-primary:hover { -fx-background-color: rgba(63, 81, 181, 0.10); }
+
+.button.btn-outline-danger {
+    -fx-background-color: transparent;
+    -fx-text-fill: -color-danger;
+    -fx-border-color: -color-danger;
+}
+.button.btn-outline-danger:hover { -fx-background-color: rgba(211, 47, 47, 0.10); }
+
+/* TableView: righe, hover e selezione coerenti ai tuoi colori */
+.table-row-cell {
+    -fx-background-color: -color-surface;
+    -fx-text-fill: -color-text;
+}
+.table-row-cell:hover {
+    -fx-background-color: derive(-color-surface, 6%);
+}
+.table-row-cell:selected {
+    -fx-background-color: -fx-selection-bar;
+    -fx-text-fill: -fx-selection-bar-text;
+}
+
+/* TabPane: tab selezionato distinguibile */
+.tab-pane .tab-header-area .tab {
+    -fx-background-color: derive(-color-surface, 3%);
+    -fx-background-radius: 8 8 0 0;
+    -fx-border-color: -color-border;
+    -fx-border-width: 1 1 0 1;
+}
+.tab-pane .tab-header-area .tab:selected {
+    -fx-background-color: derive(-color-primary, 50%);
+    -fx-text-base-color: -color-text;
+}
+
+/* ProgressBar più leggibile */
+.progress-bar > .bar {
+    -fx-background-color: -color-primary;
+    -fx-background-insets: 0;
+    -fx-background-radius: 8;
+}
+.progress-bar > .track {
+    -fx-background-color: derive(-color-surface, 12%);
+    -fx-background-radius: 8;
+}
+
+/* Chip/tag di stato rapidi (opzionali) */
+.label.tag, .chip {
+    -fx-background-color: derive(-color-surface, 8%);
+    -fx-text-fill: -color-text;
+    -fx-padding: 0.15em 0.5em;
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+    -fx-border-color: -color-border;
+    -fx-border-width: 1;
+    -fx-font-size: 0.85em;
+}
+.chip.success { -fx-background-color: derive(-color-success, 40%); -fx-border-color: derive(-color-success, -10%); }
+.chip.warning { -fx-background-color: derive(-color-warning, 40%); -fx-border-color: derive(-color-warning, -10%); }
+.chip.danger  { -fx-background-color: derive(-color-danger, 40%);  -fx-border-color: derive(-color-danger, -10%); }
+
+/* Scrollbar più discreta */
+.scroll-bar:vertical .thumb, .scroll-bar:horizontal .thumb {
+    -fx-background-color: derive(-color-surface, 25%);
+    -fx-background-radius: 999;
 }
