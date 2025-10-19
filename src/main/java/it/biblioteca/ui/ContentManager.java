@@ -384,7 +384,7 @@ public class ContentManager {
         btnEditBook = new Button("Modifica Libro");
         btnRemoveBook = new Button("Rimuovi Libro");
         btnImportCatalog = new Button("Importa CSV");
-        btnExportCatalog = new Button("LBL_EXPORT_CSV");
+        btnExportCatalog = new Button(LBL_EXPORT_CSV);
         txtSearchCatalog = new TextField();
         txtSearchCatalog.setPromptText("Cerca nel catalogo...");
         HBox toolbar = new HBox(10,
@@ -483,7 +483,7 @@ public class ContentManager {
 
     private boolean ensureBibliotecarioOrAdmin() {
         if (!(SessionContext.isBibliotecario() || SessionContext.isAdmin())) {
-            showError("MSG_NON_AUTORIZZATO");
+            showError(MSG_NON_AUTORIZZATO);
             return false;
         }
         return true;
@@ -579,7 +579,7 @@ public class ContentManager {
         Button btnAddLoan = new Button("Registra Prestito");
         Button btnReturn = new Button("Registra Restituzione");
         Button btnRefresh = new Button("Aggiorna");
-        btnExportLoans = new Button("LBL_EXPORT_CSV");
+        btnExportLoans = new Button(LBL_EXPORT_CSV);
         HBox toolbar = buildLoansToolbar(btnAddLoan, btnReturn, btnRefresh);
 
         initLoansTable();
@@ -729,7 +729,7 @@ public class ContentManager {
             if (loansData == null) loansData = FXCollections.observableArrayList();
             loansData.setAll(prestiti);
             applyLoansPredicate();
-            setStatus("Prestiti aggiornati: " + prestiti.size() + "STATUS_RECORD_SUFFIX");
+            setStatus("Prestiti aggiornati: " + prestiti.size() + STATUS_RECORD_SUFFIX);
         } catch (Exception e) {
             showError("Errore nell'aggiornamento dei prestiti: " + e.getMessage());
         }
@@ -748,7 +748,7 @@ public class ContentManager {
         myLoansRoot.setPadding(new Insets(10));
 
         Button btnRefresh = new Button("Aggiorna");
-        btnExportMyLoans = new Button("LBL_EXPORT_CSV");
+        btnExportMyLoans = new Button(LBL_EXPORT_CSV);
         cmbMyLoanFilter = new ComboBox<>();
         cmbMyLoanFilter.getItems().addAll(TUTTI, "In corso", "Conclusi");
         cmbMyLoanFilter.getSelectionModel().select(TUTTI);
@@ -844,7 +844,7 @@ public class ContentManager {
             if (myLoansData == null) myLoansData = FXCollections.observableArrayList();
             myLoansData.setAll(miei);
             applyMyLoansPredicate();
-            setStatus("I tuoi prestiti aggiornati: " + miei.size() + "STATUS_RECORD_SUFFIX");
+            setStatus("I tuoi prestiti aggiornati: " + miei.size() + STATUS_RECORD_SUFFIX);
         } catch (Exception e) {
             showError("Errore nell'aggiornamento dei tuoi prestiti: " + e.getMessage());
         }
@@ -877,7 +877,7 @@ public class ContentManager {
         Button btnDelete = new Button("Elimina");
         Button btnCred = new Button("Crea/Modifica credenziali");
         btnImportUsers = new Button("Importa CSV");
-        btnExportUsers = new Button("LBL_EXPORT_CSV");
+        btnExportUsers = new Button(LBL_EXPORT_CSV);
 
         HBox toolbar = buildUsersToolbar(btnAdd, btnEdit, btnDelete, btnCred);
         // Inserisco Import/Export subito dopo 'Elimina' e prima di 'Crea/Modifica credenziali' (o delle etichette filtro/ricerca)
@@ -1003,7 +1003,7 @@ public class ContentManager {
     private void handleEditUser() {
         Utente sel = usersTable.getSelectionModel().getSelectedItem();
         if (sel == null) { showError("Seleziona un utente da modificare."); return; }
-        if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("MSG_NON_AUTORIZZATO"); return; }
+        if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError(MSG_NON_AUTORIZZATO); return; }
         AddEditUserDialog dlg = new AddEditUserDialog(sel);
         dlg.showAndWait().ifPresent(bean -> {
             bean.setId(sel.getId());
@@ -1015,7 +1015,7 @@ public class ContentManager {
     private void handleDeleteUser() {
         Utente sel = usersTable.getSelectionModel().getSelectedItem();
         if (sel == null) { showError("Seleziona un utente da eliminare."); return; }
-        if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("MSG_NON_AUTORIZZATO"); return; }
+        if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError(MSG_NON_AUTORIZZATO); return; }
         if (ui.deleteUser(sel.getId())) { aggiornaUtenti(); showInfo("Utente eliminato."); setStatus("Utente eliminato."); }
         else showError("Impossibile eliminare l'utente.");
     }
@@ -1092,7 +1092,7 @@ public class ContentManager {
             if (usersData == null) usersData = FXCollections.observableArrayList();
             usersData.setAll(utenti);
             applyUsersPredicate();
-            setStatus("Utenti aggiornati: " + utenti.size() + "STATUS_RECORD_SUFFIX");
+            setStatus("Utenti aggiornati: " + utenti.size() + STATUS_RECORD_SUFFIX);
         } catch (Exception e) {
             showError("Errore nell'aggiornamento degli utenti: " + e.getMessage());
         }
