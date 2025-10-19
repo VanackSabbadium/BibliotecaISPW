@@ -44,6 +44,11 @@ import javafx.stage.Stage;
 
 public class ContentManager {
 
+    private static final String LBL_EXPORT_CSV       = "Esporta CSV";
+    private static final String MSG_NON_AUTORIZZATO  = "Non autorizzato.";
+    private static final String STATUS_QUERY_SUFFIX  = " | query: \"";
+    private static final String STATUS_RECORD_SUFFIX = " record.";
+
     public enum Theme { COLORI, BIANCO_NERO }
 
     private Subscription subBook;
@@ -136,44 +141,9 @@ public class ContentManager {
     public void inizializzaContenuto(BorderPane root) {
         this.rootContainer = root;
 
-        boolean done = false;
-        while (!done) {
-            StartupDialog dlg = new StartupDialog();
-            Optional<StartupResult> res = dlg.showAndWait();
-
-            if (res.isEmpty()) {
-                Platform.exit();
-                return;
-            }
-
-            StartupResult r = res.get();
-            String error = null;
-
-            if (!r.isValid()) {
-                error = "Compila tutti i campi richiesti.";
-            } else if (!it.biblioteca.db.DatabaseConfig.testCredentials(r.getUsername(), r.getPassword())) {
-                error = "Credenziali DB non valide. Riprova.";
-            } else {
-                it.biblioteca.db.DatabaseConfig.apply(r);
-                this.currentTheme = r.getTheme();
-                applyTheme();
-                // salva preferenza tema
-                AppPreferences.saveTheme(currentTheme.name());
-
-                AuthService.AuthResult ar = AuthService.authenticate(r.getAppUsername(), r.getAppPassword());
-                if (!ar.ok()) {
-                    error = "Credenziali applicative non valide. Riprova.";
-                } else {
-                    SessionContext.setRole(ar.role());
-                    SessionContext.setUserId(ar.userId());
-                    SessionContext.setTessera(ar.tessera());
-                    done = true;
-                }
-            }
-
-            if (error != null) {
-                showError(error);
-            }
+        // Riduzione complessità: spostiamo il loop di startup in un helper.
+        if (!runStartupWizard()) {
+            return; // runStartupWizard() chiama Platform.exit() se l'utente annulla.
         }
 
         tabPane = new TabPane();
@@ -210,6 +180,52 @@ public class ContentManager {
         aggiornaMieiPrestiti();
 
         setStatus("Pronto.");
+    }
+
+    // ==== Avvio guidato refactor: riduce complessità cognitiva ====
+    private boolean runStartupWizard() {
+        while (true) {
+            StartupDialog dlg = new StartupDialog();
+            java.util.Optional<StartupResult> res = dlg.showAndWait();
+            if (res.isEmpty()) {
+                Platform.exit();
+                return false;
+            }
+            StartupResult r = res.get();
+            String err = validateStartup(r);
+            if (err == null) {
+                AuthService.AuthResult ar = AuthService.authenticate(r.getAppUsername(), r.getAppPassword());
+                if (ar.ok()) {
+                    applyStartup(r, ar);
+                    return true;
+                } else {
+                    err = "Credenziali applicative non valide. Riprova.";
+                }
+            }
+            showError(err);
+        }
+    }
+
+    private String validateStartup(StartupResult r) {
+        if (r == null || !r.isValid()) return "Compila tutti i campi richiesti.";
+        if (!it.biblioteca.db.DatabaseConfig.testCredentials(r.getUsername(), r.getPassword()))
+            return "Credenziali DB non valide. Riprova.";
+        return null;
+    }
+
+    private void applyStartup(StartupResult r, AuthService.AuthResult ar) {
+        it.biblioteca.db.DatabaseConfig.apply(r);
+        this.currentTheme = r.getTheme();
+        applyTheme();
+        AppPreferences.saveTheme(currentTheme.name());
+        SessionContext.setRole(ar.role());
+        SessionContext.setUserId(ar.userId());
+        SessionContext.setTessera(ar.tessera());
+    }
+
+    // Helper per comporre lo status con eventuale query
+    private static String withQuery(String base, String q) {
+        return (q == null || q.isBlank()) ? base : base + STATUS_QUERY_SUFFIX + q + "\"";
     }
 
     private void subscribeToEvents() {
@@ -368,7 +384,7 @@ public class ContentManager {
         btnEditBook = new Button("Modifica Libro");
         btnRemoveBook = new Button("Rimuovi Libro");
         btnImportCatalog = new Button("Importa CSV");
-        btnExportCatalog = new Button("Esporta CSV");
+        btnExportCatalog = new Button("LBL_EXPORT_CSV");
         txtSearchCatalog = new TextField();
         txtSearchCatalog.setPromptText("Cerca nel catalogo...");
         HBox toolbar = new HBox(10,
@@ -467,7 +483,7 @@ public class ContentManager {
 
     private boolean ensureBibliotecarioOrAdmin() {
         if (!(SessionContext.isBibliotecario() || SessionContext.isAdmin())) {
-            showError("Non autorizzato.");
+            showError("MSG_NON_AUTORIZZATO");
             return false;
         }
         return true;
@@ -563,7 +579,7 @@ public class ContentManager {
         Button btnAddLoan = new Button("Registra Prestito");
         Button btnReturn = new Button("Registra Restituzione");
         Button btnRefresh = new Button("Aggiorna");
-        btnExportLoans = new Button("Esporta CSV");
+        btnExportLoans = new Button("LBL_EXPORT_CSV");
         HBox toolbar = buildLoansToolbar(btnAddLoan, btnReturn, btnRefresh);
 
         initLoansTable();
@@ -687,7 +703,7 @@ public class ContentManager {
         String filter = cmbLoanFilter != null ? cmbLoanFilter.getSelectionModel().getSelectedItem() : TUTTI;
         String q = (txtSearchLoans != null && txtSearchLoans.getText() != null) ? txtSearchLoans.getText().trim().toLowerCase() : "";
         loansFiltered.setPredicate(p -> matchesLoanFilter(p, filter) && matchesLoanQuery(p, q));
-        setStatus(q.isBlank() ? "Filtro prestiti: " + filter : "Filtro prestiti: " + filter + " | query: \"" + q + "\"");
+        setStatus(withQuery("Filtro prestiti: " + filter, q));
     }
 
     private boolean matchesLoanFilter(Prestito p, String filter) {
@@ -713,7 +729,7 @@ public class ContentManager {
             if (loansData == null) loansData = FXCollections.observableArrayList();
             loansData.setAll(prestiti);
             applyLoansPredicate();
-            setStatus("Prestiti aggiornati: " + prestiti.size() + " record.");
+            setStatus("Prestiti aggiornati: " + prestiti.size() + "STATUS_RECORD_SUFFIX");
         } catch (Exception e) {
             showError("Errore nell'aggiornamento dei prestiti: " + e.getMessage());
         }
@@ -732,7 +748,7 @@ public class ContentManager {
         myLoansRoot.setPadding(new Insets(10));
 
         Button btnRefresh = new Button("Aggiorna");
-        btnExportMyLoans = new Button("Esporta CSV");
+        btnExportMyLoans = new Button("LBL_EXPORT_CSV");
         cmbMyLoanFilter = new ComboBox<>();
         cmbMyLoanFilter.getItems().addAll(TUTTI, "In corso", "Conclusi");
         cmbMyLoanFilter.getSelectionModel().select(TUTTI);
@@ -779,7 +795,7 @@ public class ContentManager {
         String filter = cmbMyLoanFilter != null ? cmbMyLoanFilter.getSelectionModel().getSelectedItem() : TUTTI;
         String q = (txtSearchMyLoans != null && txtSearchMyLoans.getText() != null) ? txtSearchMyLoans.getText().trim().toLowerCase() : "";
         myLoansFiltered.setPredicate(p -> matchesMyLoanFilter(p, filter) && matchesMyLoanQuery(p, q));
-        setStatus(q.isBlank() ? "Filtro miei prestiti: " + filter : "Filtro miei prestiti: " + filter + " | query: \"" + q + "\"");
+        setStatus(withQuery("Filtro miei prestiti: " + filter, q));
     }
 
     private boolean matchesMyLoanFilter(Prestito p, String filter) {
@@ -828,7 +844,7 @@ public class ContentManager {
             if (myLoansData == null) myLoansData = FXCollections.observableArrayList();
             myLoansData.setAll(miei);
             applyMyLoansPredicate();
-            setStatus("I tuoi prestiti aggiornati: " + miei.size() + " record.");
+            setStatus("I tuoi prestiti aggiornati: " + miei.size() + "STATUS_RECORD_SUFFIX");
         } catch (Exception e) {
             showError("Errore nell'aggiornamento dei tuoi prestiti: " + e.getMessage());
         }
@@ -861,7 +877,7 @@ public class ContentManager {
         Button btnDelete = new Button("Elimina");
         Button btnCred = new Button("Crea/Modifica credenziali");
         btnImportUsers = new Button("Importa CSV");
-        btnExportUsers = new Button("Esporta CSV");
+        btnExportUsers = new Button("LBL_EXPORT_CSV");
 
         HBox toolbar = buildUsersToolbar(btnAdd, btnEdit, btnDelete, btnCred);
         // Inserisco Import/Export subito dopo 'Elimina' e prima di 'Crea/Modifica credenziali' (o delle etichette filtro/ricerca)
@@ -987,7 +1003,7 @@ public class ContentManager {
     private void handleEditUser() {
         Utente sel = usersTable.getSelectionModel().getSelectedItem();
         if (sel == null) { showError("Seleziona un utente da modificare."); return; }
-        if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("Non autorizzato."); return; }
+        if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("MSG_NON_AUTORIZZATO"); return; }
         AddEditUserDialog dlg = new AddEditUserDialog(sel);
         dlg.showAndWait().ifPresent(bean -> {
             bean.setId(sel.getId());
@@ -999,7 +1015,7 @@ public class ContentManager {
     private void handleDeleteUser() {
         Utente sel = usersTable.getSelectionModel().getSelectedItem();
         if (sel == null) { showError("Seleziona un utente da eliminare."); return; }
-        if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("Non autorizzato."); return; }
+        if (!SessionContext.isBibliotecario() && !SessionContext.isAdmin()) { showError("MSG_NON_AUTORIZZATO"); return; }
         if (ui.deleteUser(sel.getId())) { aggiornaUtenti(); showInfo("Utente eliminato."); setStatus("Utente eliminato."); }
         else showError("Impossibile eliminare l'utente.");
     }
@@ -1042,7 +1058,7 @@ public class ContentManager {
         String q = (txtSearchUsers != null && txtSearchUsers.getText() != null)
                 ? txtSearchUsers.getText().trim().toLowerCase() : "";
         usersFiltered.setPredicate(makeUserPredicate(q, stato));
-        setStatus(q.isBlank() ? "Filtro utenti: " + stato : "Filtro utenti: " + stato + " | query: \"" + q + "\"");
+        setStatus(withQuery("Filtro utenti: " + stato, q));
     }
 
     private java.util.function.Predicate<Utente> makeUserPredicate(String q, String statoFilter) {
@@ -1076,7 +1092,7 @@ public class ContentManager {
             if (usersData == null) usersData = FXCollections.observableArrayList();
             usersData.setAll(utenti);
             applyUsersPredicate();
-            setStatus("Utenti aggiornati: " + utenti.size() + " record.");
+            setStatus("Utenti aggiornati: " + utenti.size() + "STATUS_RECORD_SUFFIX");
         } catch (Exception e) {
             showError("Errore nell'aggiornamento degli utenti: " + e.getMessage());
         }
