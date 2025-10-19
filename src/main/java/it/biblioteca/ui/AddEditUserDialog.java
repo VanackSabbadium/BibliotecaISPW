@@ -17,6 +17,10 @@ import java.util.List;
  */
 public class AddEditUserDialog extends Dialog<UtenteBean> {
 
+    // Costanti per evitare duplicazioni letterali
+    private static final String LABEL_DATA_ATTIVAZIONE = "Data attivazione";
+    private static final String LABEL_DATA_SCADENZA   = "Data scadenza";
+
     private final TextField txtTessera = new TextField();
     private final TextField txtNome = new TextField();
     private final TextField txtCognome = new TextField();
@@ -56,8 +60,8 @@ public class AddEditUserDialog extends Dialog<UtenteBean> {
         txtCognome.setPromptText("Cognome");
         txtEmail.setPromptText("email@esempio.com");
         txtTelefono.setPromptText("Telefono");
-        dpAttivazione.setPromptText("Data attivazione");
-        dpScadenza.setPromptText("Data scadenza");
+        dpAttivazione.setPromptText(LABEL_DATA_ATTIVAZIONE);
+        dpScadenza.setPromptText(LABEL_DATA_SCADENZA);
 
         int r = 0;
         grid.add(new Label("Tessera"), 0, r); grid.add(txtTessera, 1, r++);
@@ -65,8 +69,8 @@ public class AddEditUserDialog extends Dialog<UtenteBean> {
         grid.add(new Label("Cognome"), 0, r); grid.add(txtCognome, 1, r++);
         grid.add(new Label("Email"), 0, r); grid.add(txtEmail, 1, r++);
         grid.add(new Label("Telefono"), 0, r); grid.add(txtTelefono, 1, r++);
-        grid.add(new Label("Data attivazione"), 0, r); grid.add(dpAttivazione, 1, r++);
-        grid.add(new Label("Data scadenza"), 0, r); grid.add(dpScadenza, 1, r);
+        grid.add(new Label(LABEL_DATA_ATTIVAZIONE), 0, r); grid.add(dpAttivazione, 1, r++);
+        grid.add(new Label(LABEL_DATA_SCADENZA), 0, r); grid.add(dpScadenza, 1, r);
 
         return grid;
     }
@@ -122,7 +126,7 @@ public class AddEditUserDialog extends Dialog<UtenteBean> {
         // Date: scadenza >= attivazione (se entrambe presenti)
         LocalDate att = dpAttivazione.getValue();
         LocalDate scad = dpScadenza.getValue();
-        ValidationUtils.validateDateOrder(att, scad, "Data attivazione", "Data scadenza", errors);
+        ValidationUtils.validateDateOrder(att, scad, LABEL_DATA_ATTIVAZIONE, LABEL_DATA_SCADENZA, errors);
 
         return errors;
     }
