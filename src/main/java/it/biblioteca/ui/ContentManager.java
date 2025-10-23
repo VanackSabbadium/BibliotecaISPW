@@ -135,7 +135,8 @@ public class ContentManager {
         try {
             String th = AppPreferences.loadThemeOrDefault();
             this.currentTheme = "BIANCO_NERO".equalsIgnoreCase(th) ? Theme.BIANCO_NERO : Theme.COLORI;
-        } catch (Exception ignored) { }
+        } catch (Exception ignored) {  // empty
+            }
     }
 
     public void inizializzaContenuto(BorderPane root) {
@@ -518,7 +519,8 @@ public class ContentManager {
         try {
             List<Prestito> attivi = ui.listActiveLoans();
             active = attivi.stream().filter(p -> p.getLibroId() != null && b.getId().equals(p.getLibroId())).count();
-        } catch (Exception ignored) { }
+        } catch (Exception ignored) { // empty
+            }
         return (int) Math.max(0, copies - active);
     }
 
@@ -968,7 +970,8 @@ public class ContentManager {
             Utente u = cell.getValue();
             String username = "";
             try { if (u != null && u.getId() != null) username = ui.getUsernameForUserId(u.getId()).orElse(""); }
-            catch (Exception ignored) { }
+            catch (Exception ignored) { // empty
+                }
             return new ReadOnlyStringWrapper(username);
         });
         TableColumn<Utente, String> passwordCol = new TableColumn<>("Password");

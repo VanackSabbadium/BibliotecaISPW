@@ -42,7 +42,7 @@ public final class AppPreferences {
     public static void saveTheme(String themeName) {
         try {
             if (themeName != null) prefs().put(KEY_THEME, themeName);
-        } catch (SecurityException ignored) {
+        } catch (SecurityException ignored) { // empty
         }
     }
 
@@ -54,7 +54,7 @@ public final class AppPreferences {
     public static void saveLastTab(String tabId) {
         try {
             if (tabId != null) prefs().put(KEY_LAST_TAB, tabId);
-        } catch (SecurityException ignored) {
+        } catch (SecurityException ignored) { // empty
         }
     }
 
@@ -71,7 +71,7 @@ public final class AppPreferences {
             if (dir != null && dir.exists() && dir.isDirectory()) {
                 prefs().put(KEY_LAST_DIR, dir.getAbsolutePath());
             }
-        } catch (SecurityException ignored) {
+        } catch (SecurityException ignored) { // empty
         }
     }
 
@@ -106,35 +106,35 @@ public final class AppPreferences {
                 saveStageH(stage.getHeight());
                 Platform.exit();
             });
-        } catch (SecurityException ignored) {
+        } catch (SecurityException ignored) { // empty
         }
     }
 
     private static void saveStageX(double x) {
         try {
             prefs().putDouble(KEY_STAGE_X, x);
-        } catch (SecurityException ignored) {
+        } catch (SecurityException ignored) { // empty
         }
     }
 
     private static void saveStageY(double y) {
         try {
             prefs().putDouble(KEY_STAGE_Y, y);
-        } catch (SecurityException ignored) {
+        } catch (SecurityException ignored) { // empty
         }
     }
 
     private static void saveStageW(double w) {
         try {
             prefs().putDouble(KEY_STAGE_W, w);
-        } catch (SecurityException ignored) {
+        } catch (SecurityException ignored) { // empty
         }
     }
 
     private static void saveStageH(double h) {
         try {
             prefs().putDouble(KEY_STAGE_H, h);
-        } catch (SecurityException ignored) {
+        } catch (SecurityException ignored) { // empty
         }
     }
 }
