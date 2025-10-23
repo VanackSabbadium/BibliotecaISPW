@@ -18,76 +18,114 @@ import java.util.List;
  */
 public class PrestitoDialog extends Dialog<PrestitoBean> {
 
+    private static final String LABEL_DATA_PRESTITO = "Data prestito";
+
     private final DatePicker dpDataPrestito = new DatePicker();
+    private final TextField txtLibro = nonEditableField();
+    private final TextField txtUtente = nonEditableField();
 
     public PrestitoDialog(Book selectedBook, Utente selectedUser) {
-
         setTitle("Conferma Prestito");
         setHeaderText("Verifica i dati e conferma il prestito");
 
-        // Form
-        GridPane form = new GridPane();
-        form.setHgap(10);
-        form.setVgap(10);
-        form.setPadding(new Insets(15));
-
-        int r = 0;
-        TextField txtLibro = new TextField();
-        txtLibro.setEditable(false);
-        TextField txtUtente = new TextField();
-        txtUtente.setEditable(false);
-
-        String titoloLibro = selectedBook != null && selectedBook.getTitolo() != null ? selectedBook.getTitolo() : "";
-        String nome = selectedUser != null && selectedUser.getNome() != null ? selectedUser.getNome() : "";
-        String cognome = selectedUser != null && selectedUser.getCognome() != null ? selectedUser.getCognome() : "";
-        Integer tessera = selectedUser != null ? selectedUser.getTessera() : null;
-        String utenteDisplay = (nome + " " + cognome).trim() + (tessera != null ? " (Tessera: " + tessera + ")" : "");
-
-        txtLibro.setText(titoloLibro);
-        txtUtente.setText(utenteDisplay);
-        dpDataPrestito.setPromptText("Data prestito");
-
-        form.add(new Label("Libro:"), 0, r);
-        form.add(txtLibro, 1, r++);
-        form.add(new Label("Utente:"), 0, r);
-        form.add(txtUtente, 1, r++);
-        form.add(new Label("Data prestito:"), 0, r);
-        form.add(dpDataPrestito, 1, r++);
-
+        GridPane form = buildForm();
+        initializeFields(selectedBook, selectedUser);
         getDialogPane().setContent(form);
 
         ButtonType okType = new ButtonType("Conferma", ButtonBar.ButtonData.OK_DONE);
         getDialogPane().getButtonTypes().addAll(okType, ButtonType.CANCEL);
 
-        // Validazione centralizzata su conferma
+        attachValidation(okType);
+        configureResultConverter(okType, selectedBook, selectedUser);
+    }
+
+    /* =========================
+       Metodi di supporto
+       ========================= */
+
+    private GridPane buildForm() {
+        GridPane form = new GridPane();
+        form.setHgap(10);
+        form.setVgap(10);
+        form.setPadding(new Insets(15));
+
+        dpDataPrestito.setPromptText(LABEL_DATA_PRESTITO);
+
+        int r = 0;
+        form.add(new Label("Libro:"), 0, r);
+        form.add(txtLibro, 1, r++);
+        form.add(new Label("Utente:"), 0, r);
+        form.add(txtUtente, 1, r++);
+        form.add(new Label(LABEL_DATA_PRESTITO + ":"), 0, r);
+        form.add(dpDataPrestito, 1, r++);
+
+        return form;
+    }
+
+    private void initializeFields(Book selectedBook, Utente selectedUser) {
+        txtLibro.setText(getBookTitle(selectedBook));
+        txtUtente.setText(buildUserDisplay(selectedUser));
+    }
+
+    private void attachValidation(ButtonType okType) {
         Button okBtn = (Button) getDialogPane().lookupButton(okType);
         okBtn.addEventFilter(javafx.event.ActionEvent.ACTION, ev -> {
-            List<String> errors = new ArrayList<>();
-            ValidationUtils.requireNotNull(dpDataPrestito.getValue(), "Data prestito", errors);
+            List<String> errors = validateForm();
             if (!errors.isEmpty()) {
                 showError(String.join("\n", errors));
                 ev.consume();
             }
         });
+    }
 
+    private List<String> validateForm() {
+        List<String> errors = new ArrayList<>();
+        ValidationUtils.requireNotNull(dpDataPrestito.getValue(), LABEL_DATA_PRESTITO, errors);
+        return errors;
+    }
+
+    private void configureResultConverter(ButtonType okType, Book selectedBook, Utente selectedUser) {
         setResultConverter(bt -> {
             if (bt != okType) return null;
 
             PrestitoBean bean = new PrestitoBean();
-            // Riferimenti
             bean.setLibroId(selectedBook != null ? selectedBook.getId() : null);
             bean.setUtenteId(selectedUser != null ? selectedUser.getId() : null);
 
-            // Snapshot
-            bean.setLibroTitoloSnapshot(titoloLibro);
-            bean.setUtenteSnapshot((nome + " " + cognome).trim());
+            bean.setLibroTitoloSnapshot(getBookTitle(selectedBook));
+            bean.setUtenteSnapshot(buildUserSnapshot(selectedUser));
 
-            // Data
             LocalDate dp = dpDataPrestito.getValue() != null ? dpDataPrestito.getValue() : LocalDate.now();
             bean.setDataPrestito(dp);
 
             return bean;
         });
+    }
+
+    private static TextField nonEditableField() {
+        TextField tf = new TextField();
+        tf.setEditable(false);
+        return tf;
+    }
+
+    private static String getBookTitle(Book b) {
+        return b != null && b.getTitolo() != null ? b.getTitolo() : "";
+    }
+
+    private static String buildUserDisplay(Utente u) {
+        if (u == null) return "";
+        String nome = u.getNome() != null ? u.getNome() : "";
+        String cognome = u.getCognome() != null ? u.getCognome() : "";
+        Integer tessera = u.getTessera();
+        String base = (nome + " " + cognome).trim();
+        return tessera != null ? base + " (Tessera: " + tessera + ")" : base;
+    }
+
+    private static String buildUserSnapshot(Utente u) {
+        if (u == null) return "";
+        String nome = u.getNome() != null ? u.getNome() : "";
+        String cognome = u.getCognome() != null ? u.getCognome() : "";
+        return (nome + " " + cognome).trim();
     }
 
     private void showError(String msg) {

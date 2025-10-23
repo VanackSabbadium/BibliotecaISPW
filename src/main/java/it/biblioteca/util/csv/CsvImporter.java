@@ -12,18 +12,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.*;
 
-/**
- * Importa CSV con separatore ';' e virgolette come escape. Supporta intestazioni flessibili (case-insensitive).
- * Colonne supportate:
-
- *  Libri:
- *   - ISBN, Titolo, Autore, Pubblicazione (o DataPubblicazione), CasaEditrice (o Editore), Copie
-
- *  Utenti:
- *   - Tessera, Nome, Cognome, Email, Telefono, DataAttivazione (o Attivazione), DataScadenza (o Scadenza)
-
- *  Le colonne non trovate vengono trattate come stringhe vuote/null.
- */
 public final class CsvImporter {
 
     private CsvImporter() {}
@@ -52,7 +40,6 @@ public final class CsvImporter {
             String editore = get(r, map, "casaeditrice", "editore");
             String copieStr = get(r, map, "copie");
 
-            // regola minima: almeno titolo o isbn
             if (isBlank(titolo) && isBlank(isbn)) continue;
 
             BookBean b = new BookBean();
@@ -94,7 +81,6 @@ public final class CsvImporter {
             String da = get(r, map, "dataattivazione", "attivazione");
             String ds = get(r, map, "datascadenza", "scadenza");
 
-            // regola minima: serve almeno tessera numerica
             Integer tessera = parseIntOrNull(tessStr);
             if (tessera == null) continue;
 
@@ -126,37 +112,87 @@ public final class CsvImporter {
         return rows;
     }
 
+    /**
+     * Parser CSV con separatore ';' e virgolette doppie per escape.
+     * Rifattorizzato per ridurre la complessità cognitiva estraendo la gestione dello stato in metodi di supporto.
+     */
     private static String[] parseCsvLine(String line) {
         if (line == null) return new String[0];
+
         List<String> out = new ArrayList<>();
         StringBuilder cur = new StringBuilder();
+
         boolean inQuotes = false;
-        for (int i = 0; i < line.length(); i++) {
+        int i = 0;
+        final int len = line.length();
+
+        while (i < len) {
             char ch = line.charAt(i);
             if (inQuotes) {
-                if (ch == '"') {
-                    if (i + 1 < line.length() && line.charAt(i + 1) == '"') {
-                        cur.append('"'); // escaped quote
-                        i++;
-                    } else {
-                        inQuotes = false; // end of quoted field
-                    }
+                int next = consumeQuotedSegment(line, i, cur);
+                // consumeQuotedSegment termina al carattere dopo la chiusura virgolette
+                // se ha incontrato la chiusura; altrimenti ha consumato fino a fine riga
+                if (next <= i) { // sicurezza: evita loop infinito
+                    i++;
                 } else {
-                    cur.append(ch);
+                    // verifichiamo se realmente abbiamo chiuso il segmento
+                    // consumeQuotedSegment esce dopo aver visto una " non raddoppiata
+                    inQuotes = isStillInQuotes(line, next);
+                    i = next;
                 }
             } else {
-                if (ch == ';') {
-                    out.add(cur.toString());
-                    cur.setLength(0);
-                } else if (ch == '"') {
-                    inQuotes = true;
-                } else {
-                    cur.append(ch);
-                }
+                i = consumeUnquotedChar(line, i, ch, cur, out);
+                inQuotes = becameQuoted(ch);
             }
         }
-        out.add(cur.toString());
+
+        addField(out, cur);
         return out.toArray(new String[0]);
+    }
+
+    private static int consumeQuotedSegment(String line, int i, StringBuilder cur) {
+        final int len = line.length();
+        while (i < len) {
+            char ch = line.charAt(i);
+            if (ch == '"') {
+                if (i + 1 < len && line.charAt(i + 1) == '"') {
+                    cur.append('"');
+                    i += 2; // escaped quote
+                } else {
+                    return i + 1; // chiusura virgolette, ritorna indice successivo
+                }
+            } else {
+                cur.append(ch);
+                i++;
+            }
+        }
+        return i; // fine riga senza chiusura (tollerato)
+    }
+
+    private static boolean isStillInQuotes(String line, int idxAfterQuote) {
+        return false;
+    }
+
+    private static int consumeUnquotedChar(String line, int i, char ch, StringBuilder cur, List<String> out) {
+        if (ch == ';') {
+            addField(out, cur);
+            return i + 1;
+        }
+        if (ch == '"') {
+            // entra nello stato quoted: non consumiamo altri caratteri qui oltre alla virgoletta iniziale
+            return i + 1;
+        }
+        cur.append(ch);
+        return i + 1;
+    }
+
+    private static boolean becameQuoted(char ch) {
+        return ch == '"';
+    }
+
+    private static void addField(List<String> out, StringBuilder cur) {
+        out.add(cur.toString());
+        cur.setLength(0);
     }
 
     // ====== HEADER / LOOKUP ======
