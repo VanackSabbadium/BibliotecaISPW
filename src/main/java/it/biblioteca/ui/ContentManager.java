@@ -1325,7 +1325,7 @@ public class ContentManager {
         for (it.biblioteca.bean.BookBean b : beans) {
             try {
                 if (ui.addBook(b)) ok++; else fail++;
-            } catch (Exception ex) {
+            } catch (Exception _) {
                 fail++;
             }
         }
