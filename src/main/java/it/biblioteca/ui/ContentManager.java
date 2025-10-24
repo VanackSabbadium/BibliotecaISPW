@@ -32,7 +32,6 @@ import javafx.scene.layout.VBox;
 import java.io.File;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Predicate;
 
 import it.biblioteca.ui.facade.UiFacade;
@@ -1314,18 +1313,24 @@ public class ContentManager {
         if (f == null) return;
 
         int ok = 0, fail = 0;
+        // Sostituisci il blocco "try/catch" dell'IMPORT CATALOGO con questo
+        List<it.biblioteca.bean.BookBean> beans;
         try {
-            List<it.biblioteca.bean.BookBean> beans = CsvImporter.importBooks(f);
-            for (it.biblioteca.bean.BookBean b : beans) {
-                try {
-                    if (ui.addBook(b)) ok++; else fail++;
-                } catch (Exception ex) { fail++; }
-            }
-            aggiornaCatalogoLibri();
-            showInfo("Import catalogo completato.\nSuccessi: " + ok + "\nFalliti: " + fail);
+            beans = CsvImporter.importBooks(f);
         } catch (Exception ex) {
             showError("Errore import catalogo: " + ex.getMessage());
+            return;
         }
+        for (it.biblioteca.bean.BookBean b : beans) {
+            try {
+                if (ui.addBook(b)) ok++; else fail++;
+            } catch (Exception ex) {
+                fail++;
+            }
+        }
+        aggiornaCatalogoLibri();
+        showInfo("Import catalogo completato.\nSuccessi: " + ok + "\nFalliti: " + fail);
+
     }
 
     private void importUsersCsv() {
@@ -1334,18 +1339,23 @@ public class ContentManager {
         if (f == null) return;
 
         int ok = 0, fail = 0;
+        List<it.biblioteca.bean.UtenteBean> beans;
         try {
-            List<it.biblioteca.bean.UtenteBean> beans = CsvImporter.importUsers(f);
-            for (it.biblioteca.bean.UtenteBean u : beans) {
-                try {
-                    if (ui.addUser(u)) ok++; else fail++;
-                } catch (Exception ex) { fail++; }
-            }
-            aggiornaUtenti();
-            showInfo("Import utenti completato.\nSuccessi: " + ok + "\nFalliti: " + fail);
+            beans = CsvImporter.importUsers(f);
         } catch (Exception ex) {
             showError("Errore import utenti: " + ex.getMessage());
+            return;
         }
+        for (it.biblioteca.bean.UtenteBean u : beans) {
+            try {
+                if (ui.addUser(u)) ok++; else fail++;
+            } catch (Exception ex) {
+                fail++;
+            }
+        }
+        aggiornaUtenti();
+        showInfo("Import utenti completato.\nSuccessi: " + ok + "\nFalliti: " + fail);
+
     }
 
     // ====== File Choosers (con preferenze directory) ======
