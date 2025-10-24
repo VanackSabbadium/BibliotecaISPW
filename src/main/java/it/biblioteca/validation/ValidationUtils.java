@@ -22,7 +22,7 @@ public final class ValidationUtils {
         }
         try {
             return Integer.valueOf(s);
-        } catch (NumberFormatException ex) {
+        } catch (NumberFormatException _) {
             errors.add(fieldName + " deve essere numerico.");
             return null;
         }

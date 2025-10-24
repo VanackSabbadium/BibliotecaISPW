@@ -29,18 +29,18 @@ public final class CsvImporter {
         Map<String, Integer> map = indexHeader(header);
 
         List<BookBean> result = new ArrayList<>();
+        // Ciclo LIBRI (sostituisci interamente il blocco for)
         for (int i = headerRowIdx + 1; i < rows.size(); i++) {
             String[] r = rows.get(i);
-            if (isEmptyRow(r)) continue;
 
-            String isbn = get(r, map, "isbn");
-            String titolo = get(r, map, "titolo");
-            String autore = get(r, map, "autore");
-            String pub = get(r, map, "pubblicazione", "datapubblicazione");
-            String editore = get(r, map, "casaeditrice", "editore");
+            String isbn     = get(r, map, "isbn");
+            String titolo   = get(r, map, "titolo");
+            String autore   = get(r, map, "autore");
+            String pub      = get(r, map, "pubblicazione", "datapubblicazione");
+            String editore  = get(r, map, "casaeditrice", "editore");
             String copieStr = get(r, map, "copie");
 
-            if (isBlank(titolo) && isBlank(isbn)) continue;
+            if (isEmptyRow(r) || (isBlank(titolo) && isBlank(isbn))) continue;
 
             BookBean b = new BookBean();
             b.setIsbn(trimOrNull(isbn));
@@ -69,20 +69,21 @@ public final class CsvImporter {
         Map<String, Integer> map = indexHeader(header);
 
         List<UtenteBean> result = new ArrayList<>();
+        // Ciclo UTENTI (sostituisci interamente il blocco for)
         for (int i = headerRowIdx + 1; i < rows.size(); i++) {
             String[] r = rows.get(i);
-            if (isEmptyRow(r)) continue;
 
             String tessStr = get(r, map, "tessera");
-            String nome = get(r, map, "nome");
+            Integer tessera = parseIntOrNull(tessStr);
+
+            String nome  = get(r, map, "nome");
             String cognome = get(r, map, "cognome");
             String email = get(r, map, "email");
-            String tel = get(r, map, "telefono");
-            String da = get(r, map, "dataattivazione", "attivazione");
-            String ds = get(r, map, "datascadenza", "scadenza");
+            String tel   = get(r, map, "telefono");
+            String da    = get(r, map, "dataattivazione", "attivazione");
+            String ds    = get(r, map, "datascadenza", "scadenza");
 
-            Integer tessera = parseIntOrNull(tessStr);
-            if (tessera == null) continue;
+            if (isEmptyRow(r) || tessera == null) continue;
 
             UtenteBean u = new UtenteBean();
             u.setTessera(tessera);
@@ -254,7 +255,7 @@ public final class CsvImporter {
         if (isBlank(s)) return null;
         try {
             return LocalDate.parse(s.trim());
-        } catch (Exception ignored) {
+        } catch (Exception _) {
             return null;
         }
     }
@@ -263,7 +264,7 @@ public final class CsvImporter {
         if (isBlank(s)) return null;
         try {
             return Integer.valueOf(s.trim());
-        } catch (Exception ignored) {
+        } catch (Exception _) {
             return null;
         }
     }

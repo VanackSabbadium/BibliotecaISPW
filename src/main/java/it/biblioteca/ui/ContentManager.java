@@ -134,7 +134,7 @@ public class ContentManager {
         try {
             String th = AppPreferences.loadThemeOrDefault();
             this.currentTheme = "BIANCO_NERO".equalsIgnoreCase(th) ? Theme.BIANCO_NERO : Theme.COLORI;
-        } catch (Exception ignored) {  // empty
+        } catch (Exception _) {  // empty
             }
     }
 
@@ -518,7 +518,7 @@ public class ContentManager {
         try {
             List<Prestito> attivi = ui.listActiveLoans();
             active = attivi.stream().filter(p -> p.getLibroId() != null && b.getId().equals(p.getLibroId())).count();
-        } catch (Exception ignored) { // empty
+        } catch (Exception _) { // empty
             }
         return (int) Math.max(0, copies - active);
     }
@@ -969,7 +969,7 @@ public class ContentManager {
             Utente u = cell.getValue();
             String username = "";
             try { if (u != null && u.getId() != null) username = ui.getUsernameForUserId(u.getId()).orElse(""); }
-            catch (Exception ignored) { // empty
+            catch (Exception _) { // empty
                 }
             return new ReadOnlyStringWrapper(username);
         });
@@ -1029,7 +1029,7 @@ public class ContentManager {
         Utente sel = usersTable.getSelectionModel().getSelectedItem();
         if (sel == null) { showError("Seleziona un utente per associare le credenziali."); return; }
         java.util.Optional<String> existing;
-        try { existing = ui.getUsernameForUserId(sel.getId()); } catch (Exception ignored) { existing = java.util.Optional.empty(); }
+        try { existing = ui.getUsernameForUserId(sel.getId()); } catch (Exception _) { existing = java.util.Optional.empty(); }
         String existingUsername = existing.orElse("");
         CredentialsDialog dlg = new CredentialsDialog(existingUsername, null);
         dlg.showAndWait().ifPresent(pair -> {
@@ -1312,7 +1312,8 @@ public class ContentManager {
         File f = chooseCsvOpenFile("Importa catalogo (CSV)");
         if (f == null) return;
 
-        int ok = 0, fail = 0;
+        int ok = 0;
+        int fail = 0;
         // Sostituisci il blocco "try/catch" dell'IMPORT CATALOGO con questo
         List<it.biblioteca.bean.BookBean> beans;
         try {
@@ -1338,18 +1339,19 @@ public class ContentManager {
         File f = chooseCsvOpenFile("Importa utenti (CSV)");
         if (f == null) return;
 
-        int ok = 0, fail = 0;
+        int ok = 0;
+        int fail = 0;
         List<it.biblioteca.bean.UtenteBean> beans;
         try {
             beans = CsvImporter.importUsers(f);
-        } catch (Exception ex) {
+        } catch (Exception _) {
             showError("Errore import utenti: " + ex.getMessage());
             return;
         }
         for (it.biblioteca.bean.UtenteBean u : beans) {
             try {
                 if (ui.addUser(u)) ok++; else fail++;
-            } catch (Exception ex) {
+            } catch (Exception _) {
                 fail++;
             }
         }
