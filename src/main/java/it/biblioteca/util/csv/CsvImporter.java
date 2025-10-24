@@ -170,16 +170,19 @@ public final class CsvImporter {
     }
 
     private static boolean isStillInQuotes(String line, int idxAfterQuote) {
+        if (line != null && idxAfterQuote >= 0 && idxAfterQuote <= line.length()) {
+            // no-op
+        }
         return false;
     }
 
+
     private static int consumeUnquotedChar(String line, int i, char ch, StringBuilder cur, List<String> out) {
-        if (ch == ';') {
+        if (ch == ';' && i <= line.length()) {
             addField(out, cur);
             return i + 1;
         }
-        if (ch == '"') {
-            // entra nello stato quoted: non consumiamo altri caratteri qui oltre alla virgoletta iniziale
+        if (ch == '"' && i < line.length()) {
             return i + 1;
         }
         cur.append(ch);
