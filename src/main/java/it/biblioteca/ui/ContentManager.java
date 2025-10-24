@@ -1344,7 +1344,7 @@ public class ContentManager {
         List<it.biblioteca.bean.UtenteBean> beans;
         try {
             beans = CsvImporter.importUsers(f);
-        } catch (Exception _) {
+        } catch (Exception ex) {
             showError("Errore import utenti: " + ex.getMessage());
             return;
         }
