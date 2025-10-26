@@ -12,8 +12,12 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class JsonUtenteDAO implements UtenteDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(JsonUtenteDAO.class.getName());
 
     private final File usersFile;
 
@@ -25,8 +29,8 @@ public class JsonUtenteDAO implements UtenteDAO {
     private static final class CredRow {
         Long userId;
         String username;
-        String passwordHash;
-        String role;
+        String passwordHash; // SHA-256 hex
+        String role;         // "ADMIN" | "BIBLIOTECARIO" | "UTENTE"
 
         CredRow(Long userId, String username, String passwordHash, String role) {
             this.userId = userId;
@@ -40,6 +44,7 @@ public class JsonUtenteDAO implements UtenteDAO {
         this.usersFile = new File(baseDir, "utenti.json");
         loadFromFile();
     }
+
     @Override
     public synchronized List<Utente> trovaTutti() {
         List<Utente> copy = new ArrayList<>();
@@ -109,7 +114,6 @@ public class JsonUtenteDAO implements UtenteDAO {
         if (utenteId == null || isBlank(username) || isBlank(passwordPlain)) return false;
         Optional<CredRow> existing = findCredRowByUserId(utenteId);
         if (existing.isPresent()) {
-            // già presenti -> non facciamo nulla
             return false;
         }
         String hash = sha256Hex(passwordPlain);
@@ -178,6 +182,8 @@ public class JsonUtenteDAO implements UtenteDAO {
         try {
             json = Files.readString(usersFile.toPath(), StandardCharsets.UTF_8);
         } catch (IOException e) {
+            // Se non riesco a leggere il file, faccio fallback ai default.
+            LOGGER.log(Level.WARNING, "Impossibile leggere utenti.json, uso valori di default.", e);
             seedDefaults();
             saveToFile();
             return;
@@ -192,6 +198,7 @@ public class JsonUtenteDAO implements UtenteDAO {
         }
 
         if (utenti.isEmpty()) {
+            LOGGER.warning("utenti.json vuoto o malformato, ricreo dati di default.");
             seedDefaults();
             saveToFile();
         }
@@ -310,8 +317,8 @@ public class JsonUtenteDAO implements UtenteDAO {
 
         List<String> objs = splitTopLevelObjects(trimmed);
         for (String obj : objs) {
-            Long id = extractLongField(obj);
-            Integer tess = extractIntField(obj);
+            Long id = extractLongField(obj, "id");
+            Integer tess = extractIntField(obj, "tessera");
             String nome = extractStringField(obj, "nome");
             String cognome = extractStringField(obj, "cognome");
             String email = extractStringField(obj, "email");
@@ -373,7 +380,7 @@ public class JsonUtenteDAO implements UtenteDAO {
         try {
             Files.writeString(usersFile.toPath(), sb.toString(), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Errore durante il salvataggio di utenti.json", e);
         }
     }
 
@@ -426,8 +433,8 @@ public class JsonUtenteDAO implements UtenteDAO {
         return null;
     }
 
-    private static Long extractLongField(String obj) {
-        Pattern p = Pattern.compile("\"" + Pattern.quote("id") + "\"\\s*:\\s*(\\d+)");
+    private static Long extractLongField(String obj, String field) {
+        Pattern p = Pattern.compile("\"" + Pattern.quote(field) + "\"\\s*:\\s*(\\d+)");
         Matcher m = p.matcher(obj);
         if (m.find()) {
             try {
@@ -437,8 +444,8 @@ public class JsonUtenteDAO implements UtenteDAO {
         return null;
     }
 
-    private static Integer extractIntField(String obj) {
-        Pattern p = Pattern.compile("\"" + Pattern.quote("tessera") + "\"\\s*:\\s*(\\d+)");
+    private static Integer extractIntField(String obj, String field) {
+        Pattern p = Pattern.compile("\"" + Pattern.quote(field) + "\"\\s*:\\s*(\\d+)");
         Matcher m = p.matcher(obj);
         if (m.find()) {
             try {

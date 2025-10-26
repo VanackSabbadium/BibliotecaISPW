@@ -8,8 +8,12 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public final class AuthService {
+
+    private static final Logger LOGGER = Logger.getLogger(AuthService.class.getName());
 
     private AuthService() { }
 
@@ -32,7 +36,7 @@ public final class AuthService {
         try {
             DaoFactory factory = SessionContext.getDaoFactory();
             if (factory == null) {
-                System.err.println("AuthService.authenticate(): DaoFactory non inizializzata");
+                LOGGER.warning("AuthService.authenticate(): DaoFactory non inizializzata");
                 return AuthResult.fail();
             }
 
@@ -48,7 +52,7 @@ public final class AuthService {
 
             return new AuthResult(true, roleEnum, row.userId(), row.tessera());
         } catch (Exception ex) {
-            ex.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Errore durante l'autenticazione", ex);
             return AuthResult.fail();
         }
     }
