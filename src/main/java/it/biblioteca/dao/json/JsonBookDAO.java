@@ -3,18 +3,16 @@ package it.biblioteca.dao.json;
 import it.biblioteca.dao.BookDAO;
 import it.biblioteca.entity.Book;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Implementazione su file JSON del BookDAO.
+ * Ora usa JsonStorageSupport per ridurre duplicazioni.
+ */
 public class JsonBookDAO implements BookDAO {
 
     private final File storageFile;
@@ -22,13 +20,11 @@ public class JsonBookDAO implements BookDAO {
     private long nextId = 1L;
 
     public JsonBookDAO(File baseDir) {
-        if (baseDir == null) {
-            baseDir = new File("data");
+        File dir = baseDir != null ? baseDir : new File("data");
+        if (!dir.exists()) {
+            dir.mkdirs();
         }
-        if (!baseDir.exists()) {
-            baseDir.mkdirs();
-        }
-        this.storageFile = new File(baseDir, "books.json");
+        this.storageFile = new File(dir, "books.json");
         loadFromDisk();
     }
 
@@ -36,10 +32,12 @@ public class JsonBookDAO implements BookDAO {
     public synchronized void salvaLibro(Book book) {
         if (book == null) return;
 
+        // assegna ID se nuovo
         if (book.getId() == null) {
             book.setId(nextId++);
         }
 
+        // se ISBN già esiste, aggiorna quello
         Book existing = findByIsbn(book.getIsbn());
         if (existing != null) {
             existing.setTitolo(book.getTitolo());
@@ -88,6 +86,10 @@ public class JsonBookDAO implements BookDAO {
         return Collections.unmodifiableList(result);
     }
 
+    // ======================================================
+    //                    SUPPORTO INTERNO
+    // ======================================================
+
     private Book findById(Long id) {
         for (Book b : cache) {
             if (id.equals(b.getId())) return b;
@@ -123,18 +125,8 @@ public class JsonBookDAO implements BookDAO {
             return;
         }
 
-        StringBuilder sb = new StringBuilder();
-        try (BufferedReader br = Files.newBufferedReader(storageFile.toPath(), StandardCharsets.UTF_8)) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                sb.append(line).append('\n');
-            }
-        } catch (IOException ignored) {
-            return;
-        }
-
-        String json = sb.toString().trim();
-        for (String obj : splitTopLevelObjects(json)) {
+        String json = JsonStorageSupport.readWholeFile(storageFile).trim();
+        for (String obj : JsonStorageSupport.splitTopLevelObjects(json)) {
             try {
                 Book b = parseBook(obj);
                 if (b.getId() != null && b.getId() >= nextId) {
@@ -142,6 +134,7 @@ public class JsonBookDAO implements BookDAO {
                 }
                 cache.add(b);
             } catch (Exception ignored) {
+                // se un record è marcio non blocchiamo tutto
             }
         }
     }
@@ -156,174 +149,61 @@ public class JsonBookDAO implements BookDAO {
         }
         out.append(']').append('\n');
 
-        try (BufferedWriter bw = Files.newBufferedWriter(
-                storageFile.toPath(),
-                StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING,
-                StandardOpenOption.WRITE)) {
-            bw.write(out.toString());
-        } catch (IOException ignored) {
-        }
+        JsonStorageSupport.writeWholeFile(storageFile, out.toString());
     }
 
+    // ======================================================
+    //              SERIALIZZAZIONE / DESERIALIZZAZIONE
+    // ======================================================
+
     private static String bookToJson(Book b) {
-        return '{' +
-                "\"id\":" + (b.getId() == null ? "null" : b.getId()) +
-                ",\"isbn\":" + quote(b.getIsbn()) +
-                ",\"titolo\":" + quote(b.getTitolo()) +
-                ",\"autore\":" + quote(b.getAutore()) +
-                ",\"dataPubblicazione\":" + quote(formatDate(b.getDataPubblicazione())) +
-                ",\"casaEditrice\":" + quote(b.getCasaEditrice()) +
-                ",\"copie\":" + b.getCopie() +
-                '}';
+        return '{'
+                + "\"id\":" + (b.getId() == null ? "null" : b.getId())
+                + ",\"isbn\":" + JsonStorageSupport.quote(b.getIsbn())
+                + ",\"titolo\":" + JsonStorageSupport.quote(b.getTitolo())
+                + ",\"autore\":" + JsonStorageSupport.quote(b.getAutore())
+                + ",\"dataPubblicazione\":" + JsonStorageSupport.quote(JsonStorageSupport.formatDate(b.getDataPubblicazione()))
+                + ",\"casaEditrice\":" + JsonStorageSupport.quote(b.getCasaEditrice())
+                + ",\"copie\":" + b.getCopie()
+                + '}';
     }
 
     private static Book parseBook(String obj) {
         Book b = new Book();
 
-        Long idVal = getLongField(obj);
+        Long idVal = getLongField(obj, "id");
         if (idVal != null) b.setId(idVal);
 
         b.setIsbn(getStringField(obj, "isbn"));
         b.setTitolo(getStringField(obj, "titolo"));
         b.setAutore(getStringField(obj, "autore"));
-        b.setDataPubblicazione(getDateField(obj));
+        b.setDataPubblicazione(getDateField(obj, "dataPubblicazione"));
         b.setCasaEditrice(getStringField(obj, "casaEditrice"));
 
-        Integer copieVal = getIntField(obj);
+        Integer copieVal = getIntField(obj, "copie");
         if (copieVal != null) b.setCopie(copieVal);
 
         return b;
     }
 
-    private static String quote(String s) {
-        return "\"" + escapeJson(s == null ? "" : s) + "\"";
-    }
-
-    private static String escapeJson(String s) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c == '\\' || c == '\"') {
-                sb.append('\\');
-            }
-            sb.append(c);
-        }
-        return sb.toString();
-    }
-
-    private static String formatDate(LocalDate d) {
-        return (d == null) ? "" : d.toString();
-    }
-
-    private static LocalDate parseDate(String v) {
-        if (v == null || v.isEmpty()) return null;
-        return LocalDate.parse(v);
-    }
-
-    private static List<String> splitTopLevelObjects(String jsonArray) {
-        List<String> objs = new ArrayList<>();
-        if (jsonArray == null || jsonArray.isEmpty()) return objs;
-        String trimmed = jsonArray.trim();
-        if (trimmed.isEmpty() || trimmed.equals("[]")) return objs;
-
-        if (trimmed.charAt(0) == '[') trimmed = trimmed.substring(1);
-        if (trimmed.endsWith("]")) trimmed = trimmed.substring(0, trimmed.length() - 1);
-
-        int depth = 0;
-        boolean inStr = false;
-        boolean escape = false;
-        int start = -1;
-
-        for (int i = 0; i < trimmed.length(); i++) {
-            char ch = trimmed.charAt(i);
-            if (inStr) {
-                if (escape) {
-                    escape = false;
-                } else if (ch == '\\') {
-                    escape = true;
-                } else if (ch == '\"') {
-                    inStr = false;
-                }
-            } else {
-                if (ch == '\"') {
-                    inStr = true;
-                } else if (ch == '{') {
-                    if (depth == 0) start = i;
-                    depth++;
-                } else if (ch == '}') {
-                    depth--;
-                    if (depth == 0 && start >= 0) {
-                        objs.add(trimmed.substring(start, i + 1).trim());
-                        start = -1;
-                    }
-                }
-            }
-        }
-        return objs;
-    }
-
-    private static String extractRawValue(String obj, String field) {
-        String key = "\"" + field + "\"";
-        int idx = obj.indexOf(key);
-        if (idx < 0) return null;
-        int colon = obj.indexOf(':', idx + key.length());
-        if (colon < 0) return null;
-        int i = colon + 1;
-        final int len = obj.length();
-        while (i < len && Character.isWhitespace(obj.charAt(i))) i++;
-        if (i >= len) return null;
-
-        char first = obj.charAt(i);
-        if (first == '\"') {
-            i++;
-            StringBuilder sb = new StringBuilder();
-            boolean esc = false;
-            while (i < len) {
-                char c = obj.charAt(i);
-                if (esc) {
-                    sb.append(c);
-                    esc = false;
-                } else if (c == '\\') {
-                    esc = true;
-                } else if (c == '\"') {
-                    break;
-                } else {
-                    sb.append(c);
-                }
-                i++;
-            }
-            return sb.toString();
-        } else {
-            int j = i;
-            while (j < len) {
-                char c = obj.charAt(j);
-                if (c == ',' || c == '}') break;
-                j++;
-            }
-            return obj.substring(i, j).trim();
-        }
-    }
-
     private static String getStringField(String obj, String field) {
-        return extractRawValue(obj, field);
+        return JsonStorageSupport.extractRawValue(obj, field);
     }
 
-    private static Integer getIntField(String obj) {
-        String raw = extractRawValue(obj, "copie");
+    private static Integer getIntField(String obj, String field) {
+        String raw = JsonStorageSupport.extractRawValue(obj, field);
         if (raw == null || raw.isEmpty() || "null".equals(raw)) return null;
         return Integer.valueOf(raw);
     }
 
-    private static Long getLongField(String obj) {
-        String raw = extractRawValue(obj, "id");
+    private static Long getLongField(String obj, String field) {
+        String raw = JsonStorageSupport.extractRawValue(obj, field);
         if (raw == null || raw.isEmpty() || "null".equals(raw)) return null;
         return Long.valueOf(raw);
     }
 
-    private static LocalDate getDateField(String obj) {
-        String raw = extractRawValue(obj, "dataPubblicazione");
-        return parseDate(raw);
+    private static LocalDate getDateField(String obj, String field) {
+        String raw = JsonStorageSupport.extractRawValue(obj, field);
+        return JsonStorageSupport.parseDate(raw);
     }
 }
