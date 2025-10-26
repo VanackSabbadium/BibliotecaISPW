@@ -16,11 +16,14 @@ import java.util.List;
 import java.util.Optional;
 
 public class UiFacade {
+
     private final BookController bookController;
     private final PrestitoController prestitoController;
     private final UtenteController utenteController;
 
-    public UiFacade(BookController bookController, PrestitoController prestitoController, UtenteController utenteController) {
+    public UiFacade(BookController bookController,
+                    PrestitoController prestitoController,
+                    UtenteController utenteController) {
         this.bookController = bookController;
         this.prestitoController = prestitoController;
         this.utenteController = utenteController;
@@ -34,26 +37,67 @@ public class UiFacade {
         );
     }
 
-    public List<Book> listBooks() { return bookController.trovaTutti(); }
-    public boolean addBook(BookBean bean) { return bookController.aggiungiLibro(bean); }
-    public boolean updateBook(BookBean bean) { return bookController.aggiornaLibro(bean); }
-    public boolean removeBook(Long id) { return bookController.rimuoviLibro(id); }
+    public List<Book> listBooks() {
+        return bookController.trovaTutti();
+    }
 
-    public List<Prestito> listLoans() { return prestitoController.trovaTutti(); }
-    public List<Prestito> listActiveLoans() { return prestitoController.trovaPrestitiAttivi(); }
-    public PrestitoController.Esito registerLoan(PrestitoBean bean) { return prestitoController.registraPrestito(bean); }
-    public boolean registerReturn(Long prestitoId, LocalDate data) { return prestitoController.registraRestituzione(prestitoId, data); }
+    public boolean addBook(BookBean bean) {
+        return bookController.aggiungiLibro(bean);
+    }
 
-    public List<Utente> listUsers() { return utenteController.trovaTutti(); }
-    public List<Utente> listActiveUsers() { return utenteController.trovaAttivi(); }
-    public boolean addUser(UtenteBean bean) { return utenteController.aggiungi(bean); }
-    public boolean updateUser(UtenteBean bean) { return utenteController.aggiorna(bean); }
-    public boolean deleteUser(Long id) { return utenteController.elimina(id); }
-    public boolean createCredentials(Long utenteId, String username, String passwordPlain) { return utenteController.creaCredenziali(utenteId, username, passwordPlain); }
-    public boolean updateCredentials(Long utenteId, String username, String passwordPlain) { return utenteController.aggiornaCredenziali(utenteId, username, passwordPlain); }
-    public Optional<String> getUsernameForUserId(Long utenteId) { return utenteController.getUsernameForUserId(utenteId); }
+    public boolean updateBook(BookBean bean) {
+        return bookController.aggiornaLibro(bean);
+    }
 
-    public BookController books() { return bookController; }
-    public PrestitoController loans() { return prestitoController; }
-    public UtenteController users() { return utenteController; }
+    public boolean removeBook(Long id) {
+        return bookController.rimuoviLibro(id);
+    }
+
+    public List<Prestito> listLoans() {
+        return prestitoController.trovaTutti();
+    }
+
+    public List<Prestito> listActiveLoans() {
+        return prestitoController.trovaPrestitiAttivi();
+    }
+
+    public PrestitoController.Esito registerLoan(PrestitoBean bean) {
+        return prestitoController.registraPrestito(bean);
+    }
+
+    public boolean registerReturn(Long prestitoId, LocalDate data) {
+        return prestitoController.registraRestituzione(prestitoId, data);
+    }
+
+    public List<Utente> listUsers() {
+        return utenteController.trovaTutti();
+    }
+
+    public boolean addUser(UtenteBean bean) {
+        return utenteController.aggiungi(bean);
+    }
+
+    public boolean updateUser(UtenteBean bean) {
+        return utenteController.aggiorna(bean);
+    }
+
+    public boolean deleteUser(Long id) {
+        return utenteController.elimina(id);
+    }
+
+    public boolean createCredentials(Long utenteId, String username, String passwordPlain) {
+        return utenteController.creaCredenziali(utenteId, username, passwordPlain);
+    }
+
+    public boolean updateCredentials(Long utenteId, String username, String passwordPlain) {
+        return utenteController.aggiornaCredenziali(utenteId, username, passwordPlain);
+    }
+
+    public Optional<String> getUsernameForUserId(Long utenteId) {
+        return utenteController.getUsernameForUserId(utenteId);
+    }
+
+    public UtenteController users() {
+        return utenteController;
+    }
 }

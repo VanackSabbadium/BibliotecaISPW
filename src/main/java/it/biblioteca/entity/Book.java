@@ -9,8 +9,8 @@ public class Book {
     private String autore;
     private LocalDate dataPubblicazione;
     private String casaEditrice;
-    private boolean attivo = true;
     private int copie = 1;
+    private boolean attivo;
 
     public Book() { // Constructor (non fa nulla)
         }
@@ -33,7 +33,9 @@ public class Book {
     public String getCasaEditrice() { return casaEditrice; }
     public void setCasaEditrice(String casaEditrice) { this.casaEditrice = casaEditrice; }
 
-    public void setAttivo(boolean attivo) { this.attivo = attivo; }
+    public void setAttivo(boolean attivo) {
+        this.attivo = attivo;
+    }
 
     public int getCopie() { return copie; }
     public void setCopie(int copie) { this.copie = copie; }

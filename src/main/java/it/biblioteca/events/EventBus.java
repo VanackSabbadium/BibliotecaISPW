@@ -30,7 +30,6 @@ public enum EventBus {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private static <T extends AppEvent> void notifySubscriber(Subscriber<?> raw, AppEvent event) {
         Subscriber<T> s = (Subscriber<T>) raw;
         s.consumer.accept((T) event);

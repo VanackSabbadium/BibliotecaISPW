@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface UtenteDAO {
+
     List<Utente> trovaTutti();
     Utente trovaPerId(Long id);
     boolean aggiungi(Utente u);
@@ -15,4 +16,8 @@ public interface UtenteDAO {
     boolean creaCredenziali(Long utenteId, String username, String passwordPlain);
     boolean aggiornaCredenziali(Long utenteId, String username, String passwordPlain);
     Optional<String> getUsernameForUserId(Long utenteId);
+
+    record AuthData(String username, String passwordHash, String role, Long userId, Integer tessera) {}
+
+    Optional<AuthData> findAuthByUsername(String username);
 }

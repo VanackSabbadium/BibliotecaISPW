@@ -1,99 +1,73 @@
 package it.biblioteca.security;
 
-import it.biblioteca.db.DatabaseConfig;
+import it.biblioteca.dao.DaoFactory;
+import it.biblioteca.dao.UtenteDAO;
+import it.biblioteca.security.SessionContext.AppRole;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.HexFormat;
+import java.util.Optional;
 
 public final class AuthService {
 
-    private static final Logger LOGGER = Logger.getLogger(AuthService.class.getName());
+    private AuthService() { }
 
-    public record AuthResult(boolean ok, String username, SessionContext.AppRole role, Long userId, Integer tessera) {
+    public static void init(DaoFactory factory) {
+        SessionContext.setDaoFactory(factory);
+    }
+
+    public record AuthResult(
+            boolean ok,
+            AppRole role,
+            Long userId,
+            Integer tessera
+    ) {
+        public static AuthResult fail() { return new AuthResult(false, null, null, null); }
     }
 
     public static AuthResult authenticate(String username, String passwordPlain) {
-        if (username == null || username.isBlank() || passwordPlain == null) return fail();
-        try (Connection c = DatabaseConfig.getConnection()) {
-            CredRow row = loadCredentials(c, username);
-            if (row == null || !passwordMatches(passwordPlain, row.storedHash)) return fail();
+        if (isBlank(username) || isBlank(passwordPlain)) return AuthResult.fail();
 
-            SessionContext.AppRole role = toRole(row.roleStr);
-            Integer tessera = row.utenteId != null ? fetchTessera(c, row.utenteId) : null;
-
-            SessionContext.setRole(role);
-            SessionContext.setAuthenticatedUsername(username);
-            SessionContext.setUserId(row.utenteId);
-            if (tessera != null) SessionContext.setTessera(tessera);
-
-            return new AuthResult(true, username, role, row.utenteId, tessera);
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "AuthService.authenticate() errore", e);
-            return fail();
-        }
-    }
-
-    private static AuthResult fail() {
-        return new AuthResult(false, null, null, null, null);
-    }
-
-    private static boolean passwordMatches(String plain, String storedHash) {
-        return storedHash != null && storedHash.equals(sha256(plain));
-    }
-
-    private static SessionContext.AppRole toRole(String roleStr) {
-        if ("ADMIN".equalsIgnoreCase(roleStr)) return SessionContext.AppRole.ADMIN;
-        if ("BIBLIOTECARIO".equalsIgnoreCase(roleStr)) return SessionContext.AppRole.BIBLIOTECARIO;
-        return SessionContext.AppRole.UTENTE;
-    }
-
-    private static Integer fetchTessera(Connection c, Long utenteId) throws SQLException {
-        try (PreparedStatement ps = c.prepareStatement("SELECT tessera FROM utenti WHERE id = ?")) {
-            ps.setLong(1, utenteId);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    Object t = rs.getObject("tessera");
-                    return t != null ? ((Number) t).intValue() : null;
-                }
+        try {
+            DaoFactory factory = SessionContext.getDaoFactory();
+            if (factory == null) {
+                System.err.println("AuthService.authenticate(): DaoFactory non inizializzata");
+                return AuthResult.fail();
             }
+
+            UtenteDAO utenteDAO = factory.utenteDAO();
+            Optional<UtenteDAO.AuthData> rowOpt = utenteDAO.findAuthByUsername(username);
+            if (rowOpt.isEmpty()) return AuthResult.fail();
+
+            UtenteDAO.AuthData row = rowOpt.get();
+            if (!passwordMatches(passwordPlain, row.passwordHash())) return AuthResult.fail();
+
+            AppRole roleEnum = AppRole.fromDbRole(row.role());
+            if (roleEnum == null) return AuthResult.fail();
+
+            return new AuthResult(true, roleEnum, row.userId(), row.tessera());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return AuthResult.fail();
         }
-        return null;
     }
 
-    private static CredRow loadCredentials(Connection c, String username) throws SQLException {
-        String sql = "SELECT utente_id, password_hash, role FROM credenziali WHERE username = ?";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, username);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) return null;
-                CredRow r = new CredRow();
-                r.utenteId = rs.getObject("utente_id") != null ? rs.getLong("utente_id") : null;
-                r.storedHash = rs.getString("password_hash");
-                r.roleStr = rs.getString("role");
-                return r;
-            }
-        }
+    private static boolean isBlank(String s) { return s == null || s.isBlank(); }
+
+    private static boolean passwordMatches(String rawPassword, String dbHashHex) {
+        if (isBlank(dbHashHex)) return false;
+        String candidateHash = sha256Hex(rawPassword);
+        return candidateHash.equalsIgnoreCase(dbHashHex.trim());
     }
 
-    private static final class CredRow {
-        Long utenteId;
-        String storedHash;
-        String roleStr;
-    }
-
-    private static String sha256(String input) {
+    private static String sha256Hex(String rawPassword) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] b = md.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte x : b) sb.append(String.format("%02x", x & 0xff));
-            return sb.toString();
-        } catch (Exception ex) { throw new IllegalArgumentException(ex); }
+            byte[] digest = md.digest(rawPassword.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (Exception e) {
+            throw new RuntimeException("SHA-256 non disponibile", e);
+        }
     }
 }

@@ -29,20 +29,7 @@ public class SelectUserDialog extends Dialog<Utente> {
         table.getItems().setAll(utenteController.trovaAttivi());
         table.setPrefHeight(320);
 
-        Button btnNuovo = new Button("Nuovo Utente");
-        btnNuovo.setOnAction(e -> {
-            AddEditUserDialog dlg = new AddEditUserDialog(null);
-            dlg.showAndWait().ifPresent(bean -> {
-                if (utenteController.aggiungi(bean)) {
-                    table.getItems().setAll(utenteController.trovaAttivi());
-                    if (onUsersChanged != null) onUsersChanged.run();
-                } else {
-                    Alert a = new Alert(Alert.AlertType.ERROR, "Impossibile aggiungere l'utente (dati non validi o duplicati)", ButtonType.OK);
-                    a.setHeaderText(null);
-                    a.showAndWait();
-                }
-            });
-        });
+        Button btnNuovo = getButton(utenteController, onUsersChanged);
 
         BorderPane root = new BorderPane();
         root.setCenter(table);
@@ -57,5 +44,23 @@ public class SelectUserDialog extends Dialog<Utente> {
         getDialogPane().lookupButton(ok).disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
 
         setResultConverter(bt -> bt == ok ? table.getSelectionModel().getSelectedItem() : null);
+    }
+
+    private Button getButton(UtenteController utenteController, Runnable onUsersChanged) {
+        Button btnNuovo = new Button("Nuovo Utente");
+        btnNuovo.setOnAction(e -> {
+            AddEditUserDialog dlg = new AddEditUserDialog(null);
+            dlg.showAndWait().ifPresent(bean -> {
+                if (utenteController.aggiungi(bean)) {
+                    table.getItems().setAll(utenteController.trovaAttivi());
+                    if (onUsersChanged != null) onUsersChanged.run();
+                } else {
+                    Alert a = new Alert(Alert.AlertType.ERROR, "Impossibile aggiungere l'utente (dati non validi o duplicati)", ButtonType.OK);
+                    a.setHeaderText(null);
+                    a.showAndWait();
+                }
+            });
+        });
+        return btnNuovo;
     }
 }

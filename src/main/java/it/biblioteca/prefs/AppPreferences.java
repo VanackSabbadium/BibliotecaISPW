@@ -6,14 +6,6 @@ import javafx.stage.Stage;
 import java.io.File;
 import java.util.prefs.Preferences;
 
-/**
- * Gestione preferenze applicative usando Java Preferences API.
- * Salva/Ripristina:
- *  - Tema scelto (COLORI/BIANCO_NERO)
- *  - Ultima tab selezionata (home/catalogo/prestiti/utenti/profilo/miei_prestiti)
- *  - Ultima directory usata per CSV
- *  - Geometria finestra (x, y, width, height) – opzionale, via applyStageGeometry
- */
 public final class AppPreferences {
 
     private static final String NODE = "it/biblioteca/app";
@@ -21,7 +13,6 @@ public final class AppPreferences {
     private static final String KEY_LAST_TAB = "lastTab"; // "home" | "catalogo" | "prestiti" | "utenti" | "profilo" | "miei_prestiti"
     private static final String KEY_LAST_DIR = "lastDir";
 
-    // stage geometry
     private static final String KEY_STAGE_X = "stageX";
     private static final String KEY_STAGE_Y = "stageY";
     private static final String KEY_STAGE_W = "stageW";
@@ -34,7 +25,6 @@ public final class AppPreferences {
         return Preferences.userRoot().node(NODE);
     }
 
-    // ===== Theme =====
     public static String loadThemeOrDefault() {
         return prefs().get(KEY_THEME, "COLORI");
     }
@@ -46,7 +36,6 @@ public final class AppPreferences {
         }
     }
 
-    // ===== Last tab =====
     public static String loadLastTabOrDefault() {
         return prefs().get(KEY_LAST_TAB, "home");
     }
@@ -58,7 +47,6 @@ public final class AppPreferences {
         }
     }
 
-    // ===== Last CSV dir =====
     public static File loadLastDirectoryOrNull() {
         String path = prefs().get(KEY_LAST_DIR, null);
         if (path == null || path.isBlank()) return null;
@@ -75,7 +63,6 @@ public final class AppPreferences {
         }
     }
 
-    // ===== Stage geometry (opzionale) =====
     public static void applyStageGeometry(Stage stage) {
         if (stage == null) return;
         try {
@@ -93,7 +80,6 @@ public final class AppPreferences {
                 stage.setY(y);
             }
 
-            // Salva in tempo reale
             stage.xProperty().addListener((obs, o, nv) -> saveStageX(stage.getX()));
             stage.yProperty().addListener((obs, o, nv) -> saveStageY(stage.getY()));
             stage.widthProperty().addListener((obs, o, nv) -> saveStageW(stage.getWidth()));

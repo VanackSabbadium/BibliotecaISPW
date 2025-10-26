@@ -9,26 +9,26 @@ class SessionContextTest {
 
     @AfterEach
     void reset() {
-        // reset “soft” dello stato condiviso
+        // reset "soft" dello stato condiviso
         SessionContext.setRole(null);
-        SessionContext.setUserId(null);
+        SessionContext.setUserId();
         SessionContext.setTessera(null);
-        SessionContext.setAuthenticatedUsername(null);
+        // niente setAuthenticatedUsername(): non esiste più
     }
 
     @Test
     void rolesAreRecognized() {
-        SessionContext.setRole(SessionContext.AppRole.ADMIN);
+        SessionContext.setRole("ADMIN");
         assertTrue(SessionContext.isAdmin());
         assertFalse(SessionContext.isBibliotecario());
         assertFalse(SessionContext.isUtente());
 
-        SessionContext.setRole(SessionContext.AppRole.BIBLIOTECARIO);
+        SessionContext.setRole("BIBLIOTECARIO");
         assertFalse(SessionContext.isAdmin());
         assertTrue(SessionContext.isBibliotecario());
         assertFalse(SessionContext.isUtente());
 
-        SessionContext.setRole(SessionContext.AppRole.UTENTE);
+        SessionContext.setRole("UTENTE");
         assertFalse(SessionContext.isAdmin());
         assertFalse(SessionContext.isBibliotecario());
         assertTrue(SessionContext.isUtente());

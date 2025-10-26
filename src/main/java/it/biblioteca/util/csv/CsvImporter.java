@@ -16,8 +16,6 @@ public final class CsvImporter {
 
     private CsvImporter() {}
 
-    // ====== PUBLIC API ======
-
     public static List<BookBean> importBooks(File file) throws IOException {
         List<String[]> rows = readAll(file);
         if (rows.isEmpty()) return Collections.emptyList();
@@ -29,7 +27,6 @@ public final class CsvImporter {
         Map<String, Integer> map = indexHeader(header);
 
         List<BookBean> result = new ArrayList<>();
-        // Ciclo LIBRI (sostituisci interamente il blocco for)
         for (int i = headerRowIdx + 1; i < rows.size(); i++) {
             String[] r = rows.get(i);
 
@@ -49,8 +46,8 @@ public final class CsvImporter {
             b.setCasaEditrice(trimOrNull(editore));
             b.setDataPubblicazione(parseDateOrNull(pub));
 
-            Integer copie = parseIntOrDefault(copieStr, 1);
-            if (copie == null || copie < 0) copie = 0;
+            int copie = parseIntOrDefault(copieStr);
+            if (copie < 0) copie = 0;
             b.setCopie(copie);
 
             result.add(b);
@@ -69,7 +66,6 @@ public final class CsvImporter {
         Map<String, Integer> map = indexHeader(header);
 
         List<UtenteBean> result = new ArrayList<>();
-        // Ciclo UTENTI (sostituisci interamente il blocco for)
         for (int i = headerRowIdx + 1; i < rows.size(); i++) {
             String[] r = rows.get(i);
 
@@ -99,8 +95,6 @@ public final class CsvImporter {
         return result;
     }
 
-    // ====== CSV PARSER ======
-
     private static List<String[]> readAll(File file) throws IOException {
         List<String[]> rows = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(
@@ -113,10 +107,6 @@ public final class CsvImporter {
         return rows;
     }
 
-    /**
-     * Parser CSV con separatore ';' e virgolette doppie per escape.
-     * Rifattorizzato per ridurre la complessità cognitiva estraendo la gestione dello stato in metodi di supporto.
-     */
     private static String[] parseCsvLine(String line) {
         if (line == null) return new String[0];
 
@@ -131,13 +121,9 @@ public final class CsvImporter {
             char ch = line.charAt(i);
             if (inQuotes) {
                 int next = consumeQuotedSegment(line, i, cur);
-                // consumeQuotedSegment termina al carattere dopo la chiusura virgolette
-                // se ha incontrato la chiusura; altrimenti ha consumato fino a fine riga
-                if (next <= i) { // sicurezza: evita loop infinito
+                if (next <= i) {
                     i++;
                 } else {
-                    // verifichiamo se realmente abbiamo chiuso il segmento
-                    // consumeQuotedSegment esce dopo aver visto una " non raddoppiata
                     inQuotes = isStillInQuotes(line, next);
                     i = next;
                 }
@@ -158,16 +144,16 @@ public final class CsvImporter {
             if (ch == '"') {
                 if (i + 1 < len && line.charAt(i + 1) == '"') {
                     cur.append('"');
-                    i += 2; // escaped quote
+                    i += 2;
                 } else {
-                    return i + 1; // chiusura virgolette, ritorna indice successivo
+                    return i + 1;
                 }
             } else {
                 cur.append(ch);
                 i++;
             }
         }
-        return i; // fine riga senza chiusura (tollerato)
+        return i;
     }
 
     private static boolean isStillInQuotes(String line, int idxAfterQuote) {
@@ -199,8 +185,6 @@ public final class CsvImporter {
         cur.setLength(0);
     }
 
-    // ====== HEADER / LOOKUP ======
-
     private static Map<String, Integer> indexHeader(String[] header) {
         Map<String, Integer> map = new HashMap<>();
         if (header == null) return map;
@@ -225,8 +209,6 @@ public final class CsvImporter {
         if (s == null) return "";
         return s.toLowerCase(Locale.ITALIAN).replaceAll("[^a-z0-9]", "");
     }
-
-    // ====== UTIL ======
 
     private static boolean isEmptyRow(String[] r) {
         if (r == null) return true;
@@ -269,8 +251,8 @@ public final class CsvImporter {
         }
     }
 
-    private static Integer parseIntOrDefault(String s, int def) {
+    private static Integer parseIntOrDefault(String s) {
         Integer v = parseIntOrNull(s);
-        return v != null ? v : def;
+        return v != null ? v : 1;
     }
 }

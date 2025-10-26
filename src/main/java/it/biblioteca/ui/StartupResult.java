@@ -17,11 +17,9 @@ public class StartupResult {
         this.theme = theme;
     }
 
-    // --- compatibilità con codice esistente che si aspetta getUsername/getPassword ---
     public String getUsername() { return dbUsername; }
     public String getPassword() { return dbPassword; }
 
-    // --- nuovi metodi per autenticazione applicativa ---
     public String getAppUsername() { return appUsername; }
     public String getAppPassword() { return appPassword; }
 

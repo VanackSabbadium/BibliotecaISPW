@@ -1,24 +1,42 @@
 package it.biblioteca.security;
 
+import it.biblioteca.dao.DaoFactory;
+
 public final class SessionContext {
 
-    public enum AppRole { ADMIN, BIBLIOTECARIO, UTENTE }
+    private SessionContext() {}
 
-    private static volatile AppRole currentRole = null;
-    private static volatile Integer tessera = null;
-    private static volatile Long userId = null;
-    private static volatile String authenticatedUsername = null;
+    public enum AppRole {
+        ADMIN, BIBLIOTECARIO, UTENTE;
 
-    public static void setRole(AppRole role) { currentRole = role; }
-    public static boolean isBibliotecario() { return currentRole == AppRole.BIBLIOTECARIO; }
-    public static boolean isUtente() { return currentRole == AppRole.UTENTE; }
-    public static boolean isAdmin() { return currentRole == AppRole.ADMIN; }
+        public static AppRole fromDbRole(String s) {
+            if (s == null) return null;
+            try {
+                return AppRole.valueOf(s.trim().toUpperCase());
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+    }
 
-    public static void setTessera(Integer tesseraNumero) { tessera = tesseraNumero; }
+    private static DaoFactory daoFactory;
+
+    private static String role;
+    private static Integer tessera;
+
+    public static void setDaoFactory(DaoFactory f) { daoFactory = f; }
+    public static DaoFactory getDaoFactory() { return daoFactory; }
+
+    public static void setRole(String r) { role = r; }
+
+    public static boolean isAdmin() { return "ADMIN".equalsIgnoreCase(role); }
+    public static boolean isBibliotecario() { return "BIBLIOTECARIO".equalsIgnoreCase(role); }
+    public static boolean isUtente() { return "UTENTE".equalsIgnoreCase(role); }
+
+    public static void setUserId() {
+    }
+
+    public static void setTessera(Integer t) { tessera = t; }
     public static Integer getTessera() { return tessera; }
-
-    public static void setUserId(Long id) { userId = id; }
-
-    public static void setAuthenticatedUsername(String uname) { authenticatedUsername = uname; }
 
 }

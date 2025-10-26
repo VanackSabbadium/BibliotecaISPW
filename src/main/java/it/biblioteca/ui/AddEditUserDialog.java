@@ -11,13 +11,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Dialog per creare/modificare un Utente.
- * La validazione è centralizzata in metodi di supporto per ridurre la complessità cognitiva.
- */
 public class AddEditUserDialog extends Dialog<UtenteBean> {
 
-    // Costanti per evitare duplicazioni letterali
     private static final String LABEL_DATA_ATTIVAZIONE = "Data attivazione";
     private static final String LABEL_DATA_SCADENZA   = "Data scadenza";
 
@@ -44,11 +39,6 @@ public class AddEditUserDialog extends Dialog<UtenteBean> {
         configureResultConverter(okType, existing);
     }
 
-    /* =========================
-       Metodi di supporto (estratti)
-       ========================= */
-
-    /** Crea il layout del form e imposta i prompt. */
     private GridPane buildForm() {
         GridPane grid = new GridPane();
         grid.setHgap(10);
@@ -75,7 +65,6 @@ public class AddEditUserDialog extends Dialog<UtenteBean> {
         return grid;
     }
 
-    /** Inizializza i campi a partire da un utente esistente o con default sensati. */
     private void initializeFields(Utente existing) {
         if (existing != null) {
             txtTessera.setText(existing.getTessera() != null ? String.valueOf(existing.getTessera()) : "");
@@ -90,7 +79,6 @@ public class AddEditUserDialog extends Dialog<UtenteBean> {
         }
     }
 
-    /** Aggiunge il filtro di validazione al pulsante OK. */
     private void attachValidation(ButtonType okType) {
         Button okBtn = (Button) getDialogPane().lookupButton(okType);
         okBtn.addEventFilter(javafx.event.ActionEvent.ACTION, ev -> {
@@ -102,7 +90,6 @@ public class AddEditUserDialog extends Dialog<UtenteBean> {
         });
     }
 
-    /** Configura il result converter per restituire l'UtenteBean. */
     private void configureResultConverter(ButtonType okType, Utente existing) {
         setResultConverter(bt -> {
             if (bt != okType) return null;
@@ -113,17 +100,13 @@ public class AddEditUserDialog extends Dialog<UtenteBean> {
         });
     }
 
-    /** Esegue le validazioni e restituisce l'elenco errori (vuoto se tutto ok). */
     private List<String> validateForm() {
         List<String> errors = new ArrayList<>();
 
-        // Tessera: obbligatoria + numerica
         ValidationUtils.parseInteger(txtTessera.getText(), "Tessera", true, errors);
 
-        // Email: se presente, formato valido
         ValidationUtils.validateEmailIfPresent(txtEmail.getText(), errors);
 
-        // Date: scadenza >= attivazione (se entrambe presenti)
         LocalDate att = dpAttivazione.getValue();
         LocalDate scad = dpScadenza.getValue();
         ValidationUtils.validateDateOrder(att, scad, LABEL_DATA_ATTIVAZIONE, LABEL_DATA_SCADENZA, errors);
@@ -131,7 +114,6 @@ public class AddEditUserDialog extends Dialog<UtenteBean> {
         return errors;
     }
 
-    /** Copia i valori dai campi nel bean (pre-condizione: validazione già eseguita). */
     private void populateBeanFromFields(UtenteBean b) {
         String tess = txtTessera.getText() != null ? txtTessera.getText().trim() : "";
         b.setTessera(tess.isEmpty() ? null : Integer.parseInt(tess));

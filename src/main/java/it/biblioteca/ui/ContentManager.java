@@ -36,7 +36,6 @@ import java.util.function.Predicate;
 
 import it.biblioteca.ui.facade.UiFacade;
 import it.biblioteca.util.csv.CsvExporter;
-import it.biblioteca.util.csv.CsvImporter;
 import it.biblioteca.prefs.AppPreferences;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -49,10 +48,6 @@ public class ContentManager {
     private static final String STATUS_RECORD_SUFFIX = " record.";
 
     public enum Theme { COLORI, BIANCO_NERO }
-
-    private Subscription subBook;
-    private Subscription subLoan;
-    private Subscription subUser;
 
     private static final String THEME_COLORI_CSS = "/css/theme-color.css";
     private static final String THEME_BW_CSS     = "/css/theme-bw.css";
@@ -94,30 +89,23 @@ public class ContentManager {
     private TableView<Prestito> loansTable;
     private ObservableList<Prestito> loansData;
     private FilteredList<Prestito> loansFiltered;
-    private SortedList<Prestito> loansSorted;
     private TextField txtSearchLoans;
     private ComboBox<String> cmbLoanFilter;
     private BorderPane loansRoot;
     private Button btnExportLoans; // export
 
-    private TableView<Prestito> myLoansTable;
     private ObservableList<Prestito> myLoansData;
     private FilteredList<Prestito> myLoansFiltered;
-    private SortedList<Prestito> myLoansSorted;
     private TextField txtSearchMyLoans;
     private ComboBox<String> cmbMyLoanFilter;
     private BorderPane myLoansRoot;
-    private Button btnExportMyLoans; // export
 
     private TableView<Utente> usersTable;
     private ObservableList<Utente> usersData;
     private FilteredList<Utente> usersFiltered;
-    private SortedList<Utente> usersSorted;
     private TextField txtSearchUsers;
     private ComboBox<String> cmbUserFilter;
     private BorderPane usersRoot;
-    private Button btnExportUsers; // export
-    private Button btnImportUsers; // import
 
     // ===== StatusBar =====
     private HBox statusBar;
@@ -134,8 +122,8 @@ public class ContentManager {
         try {
             String th = AppPreferences.loadThemeOrDefault();
             this.currentTheme = "BIANCO_NERO".equalsIgnoreCase(th) ? Theme.BIANCO_NERO : Theme.COLORI;
-        } catch (Exception _) {  // empty
-            }
+        } catch (Exception ignored) {  // empty
+        }
     }
 
     public void inizializzaContenuto(BorderPane root) {
@@ -192,11 +180,27 @@ public class ContentManager {
                 return false;
             }
             StartupResult r = res.get();
+
             String err = validateStartup(r);
             if (err == null) {
+                // Se il backend è DB, configura SUBITO le credenziali DB,
+                // così i DAO possono aprire la connessione durante l'autenticazione applicativa.
+                it.biblioteca.dao.DaoFactory f = it.biblioteca.security.SessionContext.getDaoFactory();
+                boolean isDb = (f instanceof it.biblioteca.dao.db.DbDaoFactory);
+                if (isDb) {
+                    try {
+                        // Applica host/porta/schema/username/password del DB prima del login applicativo
+                        it.biblioteca.db.DatabaseConfig.apply(r);
+                    } catch (Exception ex) {
+                        showError("Impossibile applicare la configurazione DB: " + ex.getMessage());
+                        continue;
+                    }
+                }
+
+                // Ora possiamo autenticare contro la tabella 'credenziali'
                 AuthService.AuthResult ar = AuthService.authenticate(r.getAppUsername(), r.getAppPassword());
                 if (ar.ok()) {
-                    applyStartup(r, ar);
+                    applyStartup(r, ar);  // salva tema, ruolo, userId, tessera...
                     return true;
                 } else {
                     err = "Credenziali applicative non valide. Riprova.";
@@ -208,19 +212,38 @@ public class ContentManager {
 
     private String validateStartup(StartupResult r) {
         if (r == null || !r.isValid()) return "Compila tutti i campi richiesti.";
-        if (!it.biblioteca.db.DatabaseConfig.testCredentials(r.getUsername(), r.getPassword()))
-            return "Credenziali DB non valide. Riprova.";
+
+        // Se stiamo usando backend FILE, non testare le credenziali DB
+        it.biblioteca.dao.DaoFactory f = it.biblioteca.security.SessionContext.getDaoFactory();
+        boolean isDb = (f instanceof it.biblioteca.dao.db.DbDaoFactory);
+
+        if (isDb) {
+            if (!it.biblioteca.db.DatabaseConfig.testCredentials(r.getUsername(), r.getPassword()))
+                return "Credenziali DB non valide. Riprova.";
+        }
         return null;
     }
 
     private void applyStartup(StartupResult r, AuthService.AuthResult ar) {
-        it.biblioteca.db.DatabaseConfig.apply(r);
+        // Applica configurazione DB solo se il backend attuale è DB
+        it.biblioteca.dao.DaoFactory f = it.biblioteca.security.SessionContext.getDaoFactory();
+        boolean isDb = (f instanceof it.biblioteca.dao.db.DbDaoFactory);
+        if (isDb) {
+            try {
+                it.biblioteca.db.DatabaseConfig.apply(r);
+            } catch (Exception ignored) {
+                // in FILE non serve, e in DB se fallisce ci penserà la UI
+            }
+        }
+
         this.currentTheme = r.getTheme();
         applyTheme();
-        AppPreferences.saveTheme(currentTheme.name());
-        SessionContext.setRole(ar.role());
-        SessionContext.setUserId(ar.userId());
-        SessionContext.setTessera(ar.tessera());
+        it.biblioteca.prefs.AppPreferences.saveTheme(currentTheme.name());
+
+        // Ruolo: salviamo come String
+        it.biblioteca.security.SessionContext.setRole(ar.role().name());
+        it.biblioteca.security.SessionContext.setUserId();
+        it.biblioteca.security.SessionContext.setTessera(ar.tessera());
     }
 
     // Helper per comporre lo status con eventuale query
@@ -230,9 +253,9 @@ public class ContentManager {
 
     private void subscribeToEvents() {
         EventBus bus = EventBus.getDefault();
-        subBook = bus.subscribe(BookChanged.class, e -> Platform.runLater(this::aggiornaCatalogoLibri));
-        subLoan = bus.subscribe(PrestitoChanged.class, e -> Platform.runLater(this::aggiornaPrestiti));
-        subUser = bus.subscribe(UtenteChanged.class, e -> Platform.runLater(this::aggiornaUtenti));
+        Subscription subBook = bus.subscribe(BookChanged.class, e -> Platform.runLater(this::aggiornaCatalogoLibri));
+        Subscription subLoan = bus.subscribe(PrestitoChanged.class, e -> Platform.runLater(this::aggiornaPrestiti));
+        Subscription subUser = bus.subscribe(UtenteChanged.class, e -> Platform.runLater(this::aggiornaUtenti));
     }
 
     // ====== Sidebar ======
@@ -518,8 +541,8 @@ public class ContentManager {
         try {
             List<Prestito> attivi = ui.listActiveLoans();
             active = attivi.stream().filter(p -> p.getLibroId() != null && b.getId().equals(p.getLibroId())).count();
-        } catch (Exception _) { // empty
-            }
+        } catch (Exception ignored) { // empty
+        }
         return (int) Math.max(0, copies - active);
     }
 
@@ -610,7 +633,7 @@ public class ContentManager {
         loansTable = new TableView<>();
         loansTable.setPlaceholder(new Label("Nessun prestito da mostrare"));
         loansFiltered = new FilteredList<>(loansData, p -> true);
-        loansSorted = new SortedList<>(loansFiltered);
+        SortedList<Prestito> loansSorted = new SortedList<>(loansFiltered);
         loansSorted.comparatorProperty().bind(loansTable.comparatorProperty());
         loansTable.setItems(loansSorted);
     }
@@ -749,7 +772,8 @@ public class ContentManager {
         myLoansRoot.setPadding(new Insets(10));
 
         Button btnRefresh = new Button("Aggiorna");
-        btnExportMyLoans = new Button(LBL_EXPORT_CSV);
+        // export
+        Button btnExportMyLoans = new Button(LBL_EXPORT_CSV);
         cmbMyLoanFilter = new ComboBox<>();
         cmbMyLoanFilter.getItems().addAll(TUTTI, "In corso", "Conclusi");
         cmbMyLoanFilter.getSelectionModel().select(TUTTI);
@@ -760,11 +784,11 @@ public class ContentManager {
         toolbar.setPadding(new Insets(0, 0, 10, 0));
         toolbar.getStyleClass().add(TOOLBAR);
 
-        myLoansTable = new TableView<>();
+        TableView<Prestito> myLoansTable = new TableView<>();
         myLoansTable.setPlaceholder(new Label("Nessun prestito da mostrare"));
 
         myLoansFiltered = new FilteredList<>(myLoansData, p -> true);
-        myLoansSorted = new SortedList<>(myLoansFiltered);
+        SortedList<Prestito> myLoansSorted = new SortedList<>(myLoansFiltered);
         myLoansSorted.comparatorProperty().bind(myLoansTable.comparatorProperty());
         myLoansTable.setItems(myLoansSorted);
 
@@ -877,11 +901,13 @@ public class ContentManager {
         Button btnEdit = new Button("Modifica");
         Button btnDelete = new Button("Elimina");
         Button btnCred = new Button("Crea/Modifica credenziali");
-        btnImportUsers = new Button("Importa CSV");
-        btnExportUsers = new Button(LBL_EXPORT_CSV);
+        // import
+        Button btnImportUsers = new Button("Importa CSV");
+        // export
+        Button btnExportUsers = new Button(LBL_EXPORT_CSV);
 
         HBox toolbar = buildUsersToolbar(btnAdd, btnEdit, btnDelete, btnCred);
-        // Inserisco Import/Export subito dopo 'Elimina' e prima di 'Crea/Modifica credenziali' (o delle etichette filtro/ricerca)
+        // Inserisco Import/Export subito dopo 'Elimina' e prima di 'Crea/Modifica credenziali'
         toolbar.getChildren().add(3, btnImportUsers);
         toolbar.getChildren().add(4, btnExportUsers);
 
@@ -908,10 +934,8 @@ public class ContentManager {
 
         HBox toolbar;
         if (SessionContext.isAdmin()) {
-            // Solo l'ADMIN vede il pulsante credenziali
             toolbar = new HBox(10, btnAdd, btnEdit, btnDelete, btnCred, new Label(FILTRO), cmbUserFilter, new Label(RICERCA), txtSearchUsers);
         } else {
-            // Bibliotecario e altri NON vedono il pulsante credenziali
             btnCred.setManaged(false);
             btnCred.setVisible(false);
             toolbar = new HBox(10, btnAdd, btnEdit, btnDelete, new Label(FILTRO), cmbUserFilter, new Label(RICERCA), txtSearchUsers);
@@ -926,7 +950,7 @@ public class ContentManager {
         usersTable = new TableView<>();
         usersTable.setPlaceholder(new Label("Nessun utente"));
         usersFiltered = new FilteredList<>(usersData, u -> true);
-        usersSorted = new SortedList<>(usersFiltered);
+        SortedList<Utente> usersSorted = new SortedList<>(usersFiltered);
         usersSorted.comparatorProperty().bind(usersTable.comparatorProperty());
         usersTable.setItems(usersSorted);
     }
@@ -952,11 +976,7 @@ public class ContentManager {
             LocalDate scad = u.getDataScadenza();
             boolean stato = scad != null && scad.isBefore(LocalDate.now());
             String s;
-            if (u == null) {
-                s = "";
-            } else {
-                s = stato ? "Inattivo" : "Attivo";
-            }
+            s = stato ? "Inattivo" : "Attivo";
             return new ReadOnlyStringWrapper(s);
         });
         usersTable.getColumns().setAll(tesseraCol, nomeCol, cognomeCol, emailCol, telCol, attCol, scadCol, statoCol);
@@ -969,8 +989,8 @@ public class ContentManager {
             Utente u = cell.getValue();
             String username = "";
             try { if (u != null && u.getId() != null) username = ui.getUsernameForUserId(u.getId()).orElse(""); }
-            catch (Exception _) { // empty
-                }
+            catch (Exception ignored) { // empty
+            }
             return new ReadOnlyStringWrapper(username);
         });
         TableColumn<Utente, String> passwordCol = new TableColumn<>("Password");
@@ -989,7 +1009,6 @@ public class ContentManager {
         btnAdd.setOnAction(e -> handleAddUser());
         btnEdit.setOnAction(e -> handleEditUser());
         btnDelete.setOnAction(e -> handleDeleteUser());
-        // Il pulsante è visibile solo per Admin; comunque proteggo anche l'handler
         btnCred.setOnAction(e -> handleCredentials());
     }
 
@@ -1029,7 +1048,7 @@ public class ContentManager {
         Utente sel = usersTable.getSelectionModel().getSelectedItem();
         if (sel == null) { showError("Seleziona un utente per associare le credenziali."); return; }
         java.util.Optional<String> existing;
-        try { existing = ui.getUsernameForUserId(sel.getId()); } catch (Exception _) { existing = java.util.Optional.empty(); }
+        try { existing = ui.getUsernameForUserId(sel.getId()); } catch (Exception ignored) { existing = java.util.Optional.empty(); }
         String existingUsername = existing.orElse("");
         CredentialsDialog dlg = new CredentialsDialog(existingUsername, null);
         dlg.showAndWait().ifPresent(pair -> {
@@ -1312,26 +1331,30 @@ public class ContentManager {
         File f = chooseCsvOpenFile("Importa catalogo (CSV)");
         if (f == null) return;
 
-        int ok = 0;
-        int fail = 0;
-        // Sostituisci il blocco "try/catch" dell'IMPORT CATALOGO con questo
-        List<it.biblioteca.bean.BookBean> beans;
+        int ok = 0, fail = 0;
         try {
-            beans = CsvImporter.importBooks(f);
+            java.util.List<it.biblioteca.bean.BookBean> beans = it.biblioteca.util.csv.CsvImporter.importBooks(f);
+            int[] counts = processImportBooks(beans);
+            ok = counts[0];
+            fail = counts[1];
+            aggiornaCatalogoLibri();
+            showInfo("Import catalogo completato.\nSuccessi: " + ok + "\nFalliti: " + fail);
         } catch (Exception ex) {
             showError("Errore import catalogo: " + ex.getMessage());
-            return;
         }
+    }
+
+    private int[] processImportBooks(java.util.List<it.biblioteca.bean.BookBean> beans) {
+        int ok = 0;
+        int fail = 0;
         for (it.biblioteca.bean.BookBean b : beans) {
             try {
                 if (ui.addBook(b)) ok++; else fail++;
-            } catch (Exception _) {
+            } catch (Exception ex) {
                 fail++;
             }
         }
-        aggiornaCatalogoLibri();
-        showInfo("Import catalogo completato.\nSuccessi: " + ok + "\nFalliti: " + fail);
-
+        return new int[]{ok, fail};
     }
 
     private void importUsersCsv() {
@@ -1339,28 +1362,33 @@ public class ContentManager {
         File f = chooseCsvOpenFile("Importa utenti (CSV)");
         if (f == null) return;
 
-        int ok = 0;
-        int fail = 0;
-        List<it.biblioteca.bean.UtenteBean> beans;
+        int ok = 0, fail = 0;
         try {
-            beans = CsvImporter.importUsers(f);
+            java.util.List<it.biblioteca.bean.UtenteBean> beans = it.biblioteca.util.csv.CsvImporter.importUsers(f);
+            int[] counts = processImportUsers(beans);
+            ok = counts[0];
+            fail = counts[1];
+            aggiornaUtenti();
+            showInfo("Import utenti completato.\nSuccessi: " + ok + "\nFalliti: " + fail);
         } catch (Exception ex) {
             showError("Errore import utenti: " + ex.getMessage());
-            return;
         }
+    }
+
+    private int[] processImportUsers(java.util.List<it.biblioteca.bean.UtenteBean> beans) {
+        int ok = 0;
+        int fail = 0;
         for (it.biblioteca.bean.UtenteBean u : beans) {
             try {
                 if (ui.addUser(u)) ok++; else fail++;
-            } catch (Exception _) {
+            } catch (Exception ex) {
                 fail++;
             }
         }
-        aggiornaUtenti();
-        showInfo("Import utenti completato.\nSuccessi: " + ok + "\nFalliti: " + fail);
-
+        return new int[]{ok, fail};
     }
 
-    // ====== File Choosers (con preferenze directory) ======
+    // ====== File Choosers ======
     private File chooseCsvSaveFile(String title, String defaultName) {
         FileChooser fc = new FileChooser();
         fc.setTitle(title);
@@ -1399,7 +1427,7 @@ public class ContentManager {
         // Ricerca corrente
         put(scene, "Ctrl+F", this::focusSearchFieldForActiveTab);
 
-        // Export/Import in base alla tab attiva
+        // Export/Import
         put(scene, "Ctrl+E", this::exportForActiveTab);
         put(scene, "Ctrl+I", this::importForActiveTab);
     }

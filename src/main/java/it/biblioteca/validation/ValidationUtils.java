@@ -33,13 +33,11 @@ public final class ValidationUtils {
 
         String e = email.trim();
 
-        // Bound di lunghezza per mitigare ReDoS: evita input eccessivi alla regex.
         if (e.length() > MAX_EMAIL_LENGTH) {
             errors.add("Email troppo lunga (max " + MAX_EMAIL_LENGTH + " caratteri).");
             return;
         }
 
-        // Match con regex non backtracking (possessiva/atomica)
         if (!EMAIL.matcher(e).matches()) {
             errors.add("Email non valida.");
         }

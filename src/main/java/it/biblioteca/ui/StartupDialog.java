@@ -4,7 +4,6 @@ import it.biblioteca.ui.ContentManager.Theme;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
-import javafx.util.Pair;
 
 public class StartupDialog extends Dialog<StartupResult> {
 
@@ -14,7 +13,6 @@ public class StartupDialog extends Dialog<StartupResult> {
     private final TextField txtAppUser = new TextField();
     private final PasswordField txtAppPass = new PasswordField();
 
-    // campi DB tenuti ma NON visualizzati (gestiti internamente con default)
     private final TextField txtDbUser = new TextField(DEFAULT_DB_USER);
     private final PasswordField txtDbPass = new PasswordField();
 
@@ -47,7 +45,6 @@ public class StartupDialog extends Dialog<StartupResult> {
         form.add(new Label("Password app:"), 0, r);
         form.add(txtAppPass, 1, r++);
 
-        // campi DB non visualizzati (managed=false & visible=false)
         Label lDbUser = new Label("DB User:");
         Label lDbPass = new Label("DB Pass:");
         lDbUser.setManaged(false); lDbUser.setVisible(false);
@@ -82,7 +79,6 @@ public class StartupDialog extends Dialog<StartupResult> {
             if (bt != okType) return null;
             Theme theme = themeGroup.getSelectedToggle() == rbBw ? Theme.BIANCO_NERO : Theme.COLORI;
 
-            // Costruiamo StartupResult con DB default interni e credenziali app inserite
             return new StartupResult(
                     txtDbUser.getText(),              // DB username (nascosto, default)
                     txtDbPass.getText(),              // DB password (nascosto, default)
@@ -93,7 +89,6 @@ public class StartupDialog extends Dialog<StartupResult> {
         });
     }
 
-    // piccolo contenitore comodo per i due radio affiancati
     private static final class HBox extends javafx.scene.layout.HBox {
         HBox(double spacing, RadioButton a, RadioButton b) {
             super(spacing, a, b);

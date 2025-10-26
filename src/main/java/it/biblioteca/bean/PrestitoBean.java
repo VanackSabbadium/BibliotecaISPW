@@ -5,21 +5,16 @@ import java.time.LocalDate;
 public class PrestitoBean {
     private Long id;
 
-    // Riferimenti
     private Long libroId;
     private Long utenteId;
 
-    // Snapshot memorizzati in tabella "prestiti" per storicità
     private String utenteSnapshot;         // es: "Mario Rossi"
     private String libroTitoloSnapshot;    // es: "Il Nome della Rosa"
 
-    // Date
     private LocalDate dataPrestito;
 
     public PrestitoBean() { // Constructor (non fa nulla)
         }
-
-    // Getters/Setters
 
     public Long getId() {
         return id;

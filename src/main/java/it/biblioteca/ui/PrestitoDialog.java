@@ -12,10 +12,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Dialog di conferma prestito.
- * Valida con ValidationUtils che la Data Prestito sia presente.
- */
 public class PrestitoDialog extends Dialog<PrestitoBean> {
 
     private static final String LABEL_DATA_PRESTITO = "Data prestito";
@@ -38,10 +34,6 @@ public class PrestitoDialog extends Dialog<PrestitoBean> {
         attachValidation(okType);
         configureResultConverter(okType, selectedBook, selectedUser);
     }
-
-    /* =========================
-       Metodi di supporto
-       ========================= */
 
     private GridPane buildForm() {
         GridPane form = new GridPane();

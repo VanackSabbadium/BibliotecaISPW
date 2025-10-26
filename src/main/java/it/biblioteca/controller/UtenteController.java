@@ -22,5 +22,4 @@ public class UtenteController {
     public boolean creaCredenziali(Long utenteId, String username, String passwordPlain) { return service.createCredentials(utenteId, username, passwordPlain); }
     public boolean aggiornaCredenziali(Long utenteId, String username, String passwordPlain) { return service.updateCredentials(utenteId, username, passwordPlain); }
     public Optional<String> getUsernameForUserId(Long utenteId) { return service.getUsernameForUserId(utenteId); }
-
 }

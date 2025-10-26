@@ -129,6 +129,28 @@ public class JdbcUtenteDAO extends JdbcSupport implements UtenteDAO {
         }
     }
 
+    @Override
+    public Optional<AuthData> findAuthByUsername(String username) {
+        String sql = """
+                SELECT c.username, c.password_hash, c.role, u.id AS user_id, u.tessera AS tessera
+                FROM credenziali c
+                JOIN utenti u ON u.id = c.utente_id
+                WHERE c.username = ?
+                """;
+        try {
+            AuthData row = queryOne(sql, ps -> ps.setString(1, username), rs -> new AuthData(
+                    rs.getString("username"),
+                    rs.getString("password_hash"),
+                    rs.getString("role"),
+                    asLong(rs),
+                    asInteger(rs)
+            ));
+            return Optional.ofNullable(row);
+        } catch (SQLException e) {
+            throw new IllegalArgumentException("Errore findAuthByUsername", e);
+        }
+    }
+
     private Utente map(ResultSet rs) throws SQLException {
         Utente u = new Utente();
         Object idObj = rs.getObject("id");
@@ -143,5 +165,15 @@ public class JdbcUtenteDAO extends JdbcSupport implements UtenteDAO {
         u.setDataAttivazione(da != null ? da.toLocalDate() : null);
         u.setDataScadenza(ds != null ? ds.toLocalDate() : null);
         return u;
+    }
+
+    private static Long asLong(ResultSet rs) throws SQLException {
+        Object v = rs.getObject("user_id");
+        return v == null ? null : ((Number) v).longValue();
+    }
+
+    private static Integer asInteger(ResultSet rs) throws SQLException {
+        Object v = rs.getObject("tessera");
+        return v == null ? null : ((Number) v).intValue();
     }
 }
