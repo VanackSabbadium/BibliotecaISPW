@@ -8,14 +8,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Supporto condiviso per i DAO JSON.
- * Qui vivono tutte le utility comuni (lettura/scrittura file, parsing JSON minimale, ecc.).
- *
- * Questo serve a:
- *  - ridurre il codice duplicato fra JsonBookDAO e JsonPrestitoDAO
- *  - calmare SonarQube così smette di lamentarsi che ci stiamo copiando i compiti.
- */
 final class JsonStorageSupport {
 
     private JsonStorageSupport() {
@@ -42,118 +34,148 @@ final class JsonStorageSupport {
         }
     }
 
-    /**
-     * Estrae tutti gli oggetti JSON top-level da un array JSON fatto così:
-     * [ { ... }, { ... }, ... ]
-     *
-     * Non è un parser JSON generale. È volutamente minimale.
-     */
+    /* =========================
+       Parsing JSON minimale
+       ========================= */
+
     static List<String> splitTopLevelObjects(String jsonArray) {
         List<String> objs = new ArrayList<>();
-        if (jsonArray == null || jsonArray.isEmpty()) return objs;
+        if (jsonArray == null) return objs;
 
         String trimmed = jsonArray.trim();
-        if (trimmed.isEmpty() || "[]".equals(trimmed)) return objs;
+        if (trimmed.length() < 2 || "[]".equals(trimmed)) return objs;
 
-        // togliamo [ ... ]
-        if (trimmed.charAt(0) == '[') {
-            trimmed = trimmed.substring(1);
-        }
-        if (trimmed.endsWith("]")) {
-            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        // Rimuovi parentesi quadre esterne se presenti
+        if (trimmed.charAt(0) == '[' && trimmed.charAt(trimmed.length() - 1) == ']') {
+            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
         }
 
-        int depth = 0;
-        boolean inStr = false;
-        boolean escape = false;
-        int start = -1;
-
-        for (int i = 0; i < trimmed.length(); i++) {
+        final int len = trimmed.length();
+        int i = 0;
+        while (i < len) {
             char ch = trimmed.charAt(i);
-
-            if (inStr) {
-                if (escape) {
-                    escape = false;
-                } else if (ch == '\\') {
-                    escape = true;
-                } else if (ch == '"') {
-                    inStr = false;
-                }
+            if (ch == '{') {
+                int end = findObjectEnd(trimmed, i);
+                if (end < 0) break; // JSON incompleto: best effort
+                objs.add(trimmed.substring(i, end + 1).trim());
+                i = end + 1;
             } else {
-                if (ch == '"') {
-                    inStr = true;
-                } else if (ch == '{') {
-                    if (depth == 0) {
-                        start = i;
-                    }
-                    depth++;
-                } else if (ch == '}') {
-                    depth--;
-                    if (depth == 0 && start >= 0) {
-                        objs.add(trimmed.substring(start, i + 1).trim());
-                        start = -1;
-                    }
-                }
+                i++;
             }
         }
-
         return objs;
     }
 
-    /**
-     * Estrae il valore di un campo JSON da una stringa tipo:
-     * { "campo": valore,... }
-     * Restituisce stringa senza virgolette se era stringa, oppure il raw se numero/null.
-     */
     static String extractRawValue(String obj, String field) {
-        String key = "\"" + field + "\"";
-        int idx = obj.indexOf(key);
-        if (idx < 0) return null;
+        if (obj == null || field == null) return null;
 
-        int colon = obj.indexOf(':', idx + key.length());
+        String key = "\"" + field + "\"";
+        int k = obj.indexOf(key);
+        if (k < 0) return null;
+
+        int afterKey = k + key.length();
+        int colon = findNextColon(obj, afterKey);
         if (colon < 0) return null;
 
-        int i = colon + 1;
-        final int len = obj.length();
+        int vStart = skipWs(obj, colon + 1);
+        if (vStart >= obj.length()) return null;
 
-        // salta spazi
-        while (i < len && Character.isWhitespace(obj.charAt(i))) {
-            i++;
-        }
-        if (i >= len) return null;
-
-        char first = obj.charAt(i);
+        char first = obj.charAt(vStart);
         if (first == '"') {
-            // stringa
-            i++;
-            StringBuilder sb = new StringBuilder();
-            boolean esc = false;
-            while (i < len) {
-                char c = obj.charAt(i);
-                if (esc) {
-                    sb.append(c);
-                    esc = false;
-                } else if (c == '\\') {
-                    esc = true;
-                } else if (c == '"') {
-                    break;
-                } else {
-                    sb.append(c);
-                }
-                i++;
-            }
-            return sb.toString();
-        } else {
-            // numero, null, ecc.
-            int j = i;
-            while (j < len) {
-                char c = obj.charAt(j);
-                if (c == ',' || c == '}') break;
-                j++;
-            }
-            return obj.substring(i, j).trim();
+            // Stringa JSON
+            Read r = readJsonString(obj, vStart);
+            return r.value;
         }
+
+        // Valore non quotato (numero, null, boolean)
+        int vEnd = findBareValueEnd(obj, vStart);
+        return obj.substring(vStart, vEnd).trim();
     }
+
+    /* =========================
+       Helper interni
+       ========================= */
+
+    private static int findObjectEnd(CharSequence s, int startBrace) {
+        // Precondizione: s.charAt(startBrace) == '{'
+        int depth = 1;
+        boolean inStr = false;
+        boolean esc = false;
+        for (int i = startBrace + 1; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            if (inStr) {
+                if (esc) {
+                    esc = false;
+                } else if (ch == '\\') {
+                    esc = true;
+                } else if (ch == '\"') {
+                    inStr = false;
+                }
+                continue;
+            }
+            if (ch == '\"') {
+                inStr = true;
+            } else if (ch == '{') {
+                depth++;
+            } else if (ch == '}') {
+                depth--;
+                if (depth == 0) return i;
+            }
+        }
+        return -1; // non chiuso
+    }
+
+    private static int skipWs(CharSequence s, int i) {
+        int len = s.length();
+        while (i < len && Character.isWhitespace(s.charAt(i))) i++;
+        return i;
+    }
+
+    private static int findNextColon(CharSequence s, int from) {
+        for (int i = from; i < s.length(); i++) {
+            if (s.charAt(i) == ':') return i;
+        }
+        return -1;
+    }
+
+    private static int findBareValueEnd(CharSequence s, int from) {
+        for (int i = from; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            if (ch == ',' || ch == '}') return i;
+        }
+        return s.length();
+    }
+
+    private static Read readJsonString(CharSequence s, int quotePos) {
+        // Precondizione: s.charAt(quotePos) == '"'
+        StringBuilder sb = new StringBuilder(32);
+        boolean esc = false;
+        int i = quotePos + 1;
+        for (; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (esc) {
+                sb.append(c);
+                esc = false;
+            } else if (c == '\\') {
+                esc = true;
+            } else if (c == '\"') {
+                break; // chiusura
+            } else {
+                sb.append(c);
+            }
+        }
+        return new Read(sb.toString(), i);
+    }
+
+    private static final class Read {
+        final String value;
+        final int endPos; // posizione della " di chiusura
+        Read(String v, int e) { this.value = v; this.endPos = e; }
+    }
+
+    /* =========================
+       Utility generiche
+       ========================= */
 
     static String quote(String s) {
         return "\"" + escapeJson(s == null ? "" : s) + "\"";
@@ -161,12 +183,10 @@ final class JsonStorageSupport {
 
     static String escapeJson(String s) {
         if (s == null) return "";
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(s.length() + 8);
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
-            if (c == '\\' || c == '\"') {
-                sb.append('\\');
-            }
+            if (c == '\\' || c == '\"') sb.append('\\');
             sb.append(c);
         }
         return sb.toString();
@@ -177,7 +197,7 @@ final class JsonStorageSupport {
     }
 
     static LocalDate parseDate(String v) {
-        if (v == null || v.isEmpty()) return null;
-        return LocalDate.parse(v);
+        if (v == null || v.isBlank() || "null".equalsIgnoreCase(v)) return null;
+        return LocalDate.parse(v.trim());
     }
 }
