@@ -225,8 +225,7 @@ public class ContentManager {
         it.biblioteca.dao.DaoFactory f = it.biblioteca.security.SessionContext.getDaoFactory();
         boolean isDb = (f instanceof it.biblioteca.dao.db.DbDaoFactory);
 
-        if (isDb) {
-            if (!it.biblioteca.db.DatabaseConfig.testCredentials(r.getUsername(), r.getPassword()))
+        if (isDb && !it.biblioteca.db.DatabaseConfig.testCredentials(r.getUsername(), r.getPassword())) {
                 return "Credenziali DB non valide. Riprova.";
         }
         return null;

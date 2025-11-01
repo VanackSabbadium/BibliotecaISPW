@@ -71,7 +71,7 @@ public final class AuthService {
             byte[] digest = md.digest(rawPassword.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(digest);
         } catch (Exception e) {
-            throw new RuntimeException("SHA-256 non disponibile", e);
+            throw new IllegalArgumentException("SHA-256 non disponibile", e);
         }
     }
 }
