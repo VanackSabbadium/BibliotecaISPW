@@ -385,51 +385,69 @@ public class JsonUtenteDAO implements UtenteDAO {
         }
     }
 
-    private static List<String> splitTopLevelObjects(String json) {
-        List<String> out = new ArrayList<>();
-        if (json == null) return out;
-
+    private static String stripArrayBrackets(String json) {
+        if (json == null) return "";
         String s = json.trim();
-        if (s.length() < 2 || "[]".equals(s)) return out;
-
-        // Rimuove le parentesi quadre esterne dell'array, se presenti
-        if (s.charAt(0) == '[' && s.charAt(s.length() - 1) == ']') {
-            s = s.substring(1, s.length() - 1).trim();
+        if (s.length() >= 2 && s.charAt(0) == '[' && s.charAt(s.length() - 1) == ']') {
+            return s.substring(1, s.length() - 1).trim();
         }
+        return s;
+    }
 
+    private static final class TopLevelObjectWalker {
         int depth = 0;
-        boolean inStr = false;
-        boolean esc = false;   // siamo dentro una stringa e il carattere precedente è un backslash
+        boolean inString = false;
+        boolean escape = false;
         int start = -1;
+        String completed = null;
 
-        for (int i = 0; i < s.length(); i++) {
-            char ch = s.charAt(i);
-
-            if (inStr) {
-                if (esc) {
-                    esc = false;           // consumato il carattere dopo il backslash
+        void step(char ch, String src, int idx) {
+            if (inString) {
+                if (escape) {
+                    escape = false;
                 } else if (ch == '\\') {
-                    esc = true;            // prossimo carattere è escaped
+                    escape = true;
                 } else if (ch == '\"') {
-                    inStr = false;         // fine stringa
+                    inString = false;
                 }
-                continue;                  // dentro stringa ignoriamo la struttura
+                return;
             }
-
             if (ch == '\"') {
-                inStr = true;              // inizio stringa
-            } else if (ch == '{') {
-                if (depth == 0) start = i; // inizio oggetto top-level
+                inString = true;
+                return;
+            }
+            if (ch == '{') {
+                if (depth == 0) start = idx;
                 depth++;
-            } else if (ch == '}') {
+                return;
+            }
+            if (ch == '}') {
                 depth--;
                 if (depth == 0 && start >= 0) {
-                    out.add(s.substring(start, i + 1).trim());
+                    completed = src.substring(start, idx + 1).trim();
                     start = -1;
                 }
             }
         }
 
+        String popCompleted() {
+            String c = completed;
+            completed = null;
+            return c;
+        }
+    }
+
+    private static List<String> splitTopLevelObjects(String json) {
+        List<String> out = new ArrayList<>();
+        String s = stripArrayBrackets(json);
+        if (s.isEmpty()) return out;
+
+        TopLevelObjectWalker w = new TopLevelObjectWalker();
+        for (int i = 0; i < s.length(); i++) {
+            w.step(s.charAt(i), s, i);
+            String done = w.popCompleted();
+            if (done != null) out.add(done);
+        }
         return out;
     }
 
