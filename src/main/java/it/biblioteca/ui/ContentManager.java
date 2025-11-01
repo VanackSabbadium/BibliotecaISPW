@@ -172,32 +172,33 @@ public class ContentManager {
 
     private boolean runStartupWizard() {
         while (true) {
-            java.util.Optional<StartupResult> res = new StartupDialog().showAndWait();
+            var res = new StartupDialog().showAndWait();
             if (res.isEmpty()) return exitApp();
 
             StartupResult r = res.get();
-
-            String validationError = validateStartup(r);
-            if (validationError != null) {
-                showError(validationError);
-                continue;
+            String error = attemptStartup(r);
+            if (error == null) {
+                // tutto ok, startup applicato dentro attemptStartup
+                return true;
             }
-
-            String dbError = configureDbIfNeeded(r);
-            if (dbError != null) {
-                showError(dbError);
-                continue;
-            }
-
-            AuthService.AuthResult ar = AuthService.authenticate(r.getAppUsername(), r.getAppPassword());
-            if (!ar.ok()) {
-                showError("Credenziali applicative non valide. Riprova.");
-                continue;
-            }
-
-            applyStartup(r, ar);
-            return true;
+            // mostro l'errore e ripresento la dialog
+            showError(error);
+            // niente continue: il while riparte da solo
         }
+    }
+
+    private String attemptStartup(StartupResult r) {
+        String validationError = validateStartup(r);
+        if (validationError != null) return validationError;
+
+        String dbError = configureDbIfNeeded(r);
+        if (dbError != null) return dbError;
+
+        AuthService.AuthResult ar = AuthService.authenticate(r.getAppUsername(), r.getAppPassword());
+        if (!ar.ok()) return "Credenziali applicative non valide. Riprova.";
+
+        applyStartup(r, ar);
+        return null;
     }
 
     private boolean exitApp() {
@@ -260,9 +261,9 @@ public class ContentManager {
 
     private void subscribeToEvents() {
         EventBus bus = EventBus.getDefault();
-        Subscription subBook = bus.subscribe(BookChanged.class, e -> Platform.runLater(this::aggiornaCatalogoLibri));
-        Subscription subLoan = bus.subscribe(PrestitoChanged.class, e -> Platform.runLater(this::aggiornaPrestiti));
-        Subscription subUser = bus.subscribe(UtenteChanged.class, e -> Platform.runLater(this::aggiornaUtenti));
+        bus.subscribe(BookChanged.class, e -> Platform.runLater(this::aggiornaCatalogoLibri));
+        bus.subscribe(PrestitoChanged.class, e -> Platform.runLater(this::aggiornaPrestiti));
+        bus.subscribe(UtenteChanged.class, e -> Platform.runLater(this::aggiornaUtenti));
     }
 
     // ====== Sidebar ======
