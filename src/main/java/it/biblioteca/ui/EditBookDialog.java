@@ -18,7 +18,6 @@ public class EditBookDialog extends Dialog<BookBean> {
         setTitle("Modifica Libro");
         setHeaderText("Aggiorna i dati del libro");
 
-        // Prefill
         txtIsbn.setText(book.getIsbn());
         txtTitolo.setText(book.getTitolo());
         txtAutore.setText(book.getAutore());

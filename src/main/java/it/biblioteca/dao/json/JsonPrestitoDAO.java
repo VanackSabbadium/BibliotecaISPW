@@ -121,7 +121,7 @@ public class JsonPrestitoDAO implements PrestitoDAO {
                 }
                 cache.add(p);
             } catch (Exception _) {
-                // un record rotto non butta giù tutto
+                // empty
             }
         }
     }
@@ -138,10 +138,6 @@ public class JsonPrestitoDAO implements PrestitoDAO {
 
         JsonStorageSupport.writeWholeFile(storageFile, out.toString());
     }
-
-    // ======================================================
-    //              SERIALIZZAZIONE / DESERIALIZZAZIONE
-    // ======================================================
 
     private static String prestitoToJson(Prestito p) {
         return '{'

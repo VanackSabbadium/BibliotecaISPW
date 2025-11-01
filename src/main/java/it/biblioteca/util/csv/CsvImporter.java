@@ -163,7 +163,6 @@ public final class CsvImporter {
         return false;
     }
 
-
     private static int consumeUnquotedChar(String line, int i, char ch, StringBuilder cur, List<String> out) {
         if (ch == ';' && i <= line.length()) {
             addField(out, cur);

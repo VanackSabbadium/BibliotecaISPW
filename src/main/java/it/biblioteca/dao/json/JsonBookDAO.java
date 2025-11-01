@@ -9,10 +9,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Implementazione su file JSON del BookDAO.
- * Ora usa JsonStorageSupport per ridurre duplicazioni.
- */
 public class JsonBookDAO implements BookDAO {
 
     private final File storageFile;
@@ -32,12 +28,10 @@ public class JsonBookDAO implements BookDAO {
     public synchronized void salvaLibro(Book book) {
         if (book == null) return;
 
-        // assegna ID se nuovo
         if (book.getId() == null) {
             book.setId(nextId++);
         }
 
-        // se ISBN già esiste, aggiorna quello
         Book existing = findByIsbn(book.getIsbn());
         if (existing != null) {
             existing.setTitolo(book.getTitolo());
@@ -86,10 +80,6 @@ public class JsonBookDAO implements BookDAO {
         return Collections.unmodifiableList(result);
     }
 
-    // ======================================================
-    //                    SUPPORTO INTERNO
-    // ======================================================
-
     private Book findById(Long id) {
         for (Book b : cache) {
             if (id.equals(b.getId())) return b;
@@ -134,7 +124,7 @@ public class JsonBookDAO implements BookDAO {
                 }
                 cache.add(b);
             } catch (Exception _) {
-                // se un record è marcio non blocchiamo tutto
+                // empty
             }
         }
     }
@@ -152,10 +142,6 @@ public class JsonBookDAO implements BookDAO {
         JsonStorageSupport.writeWholeFile(storageFile, out.toString());
     }
 
-    // ======================================================
-    //              SERIALIZZAZIONE / DESERIALIZZAZIONE
-    // ======================================================
-
     private static String bookToJson(Book b) {
         return '{'
                 + "\"id\":" + (b.getId() == null ? "null" : b.getId())
@@ -171,16 +157,16 @@ public class JsonBookDAO implements BookDAO {
     private static Book parseBook(String obj) {
         Book b = new Book();
 
-        Long idVal = getLongField(obj, "id");
+        Long idVal = getLongField(obj);
         if (idVal != null) b.setId(idVal);
 
         b.setIsbn(getStringField(obj, "isbn"));
         b.setTitolo(getStringField(obj, "titolo"));
         b.setAutore(getStringField(obj, "autore"));
-        b.setDataPubblicazione(getDateField(obj, "dataPubblicazione"));
+        b.setDataPubblicazione(getDateField(obj));
         b.setCasaEditrice(getStringField(obj, "casaEditrice"));
 
-        Integer copieVal = getIntField(obj, "copie");
+        Integer copieVal = getIntField(obj);
         if (copieVal != null) b.setCopie(copieVal);
 
         return b;
@@ -190,20 +176,20 @@ public class JsonBookDAO implements BookDAO {
         return JsonStorageSupport.extractRawValue(obj, field);
     }
 
-    private static Integer getIntField(String obj, String field) {
-        String raw = JsonStorageSupport.extractRawValue(obj, field);
+    private static Integer getIntField(String obj) {
+        String raw = JsonStorageSupport.extractRawValue(obj, "copie");
         if (raw == null || raw.isEmpty() || "null".equals(raw)) return null;
         return Integer.valueOf(raw);
     }
 
-    private static Long getLongField(String obj, String field) {
-        String raw = JsonStorageSupport.extractRawValue(obj, field);
+    private static Long getLongField(String obj) {
+        String raw = JsonStorageSupport.extractRawValue(obj, "id");
         if (raw == null || raw.isEmpty() || "null".equals(raw)) return null;
         return Long.valueOf(raw);
     }
 
-    private static LocalDate getDateField(String obj, String field) {
-        String raw = JsonStorageSupport.extractRawValue(obj, field);
+    private static LocalDate getDateField(String obj) {
+        String raw = JsonStorageSupport.extractRawValue(obj, "dataPubblicazione");
         return JsonStorageSupport.parseDate(raw);
     }
 }

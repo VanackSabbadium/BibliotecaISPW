@@ -149,7 +149,7 @@ public class DbBookDAO implements BookDAO {
         b.setCasaEditrice(rs.getString("casa_editrice"));
 
         boolean attivoDb = rs.getBoolean("attivo");
-        b.setAttivo(attivoDb);
+        b.setAttivo();
 
         int copieDb = rs.getInt("copie");
         b.setCopie(copieDb);

@@ -7,7 +7,6 @@ import it.biblioteca.entity.Utente;
 import it.biblioteca.security.AuthService;
 import it.biblioteca.security.SessionContext;
 import it.biblioteca.events.EventBus;
-import it.biblioteca.events.Subscription;
 import it.biblioteca.events.events.BookChanged;
 import it.biblioteca.events.events.PrestitoChanged;
 import it.biblioteca.events.events.UtenteChanged;
@@ -129,7 +128,6 @@ public class ContentManager {
     public void inizializzaContenuto(BorderPane root) {
         this.rootContainer = root;
 
-        // Riduzione complessità: spostiamo il loop di startup in un helper.
         if (!runStartupWizard()) {
             return; // runStartupWizard() chiama Platform.exit() se l'utente annulla.
         }
@@ -178,12 +176,9 @@ public class ContentManager {
             StartupResult r = res.get();
             String error = attemptStartup(r);
             if (error == null) {
-                // tutto ok, startup applicato dentro attemptStartup
                 return true;
             }
-            // mostro l'errore e ripresento la dialog
             showError(error);
-            // niente continue: il while riparte da solo
         }
     }
 
@@ -314,7 +309,6 @@ public class ContentManager {
         return left;
     }
 
-    // ====== Home ======
     private BorderPane buildHomeView() {
         BorderPane p = new BorderPane();
         p.setPadding(new Insets(20));
@@ -375,7 +369,6 @@ public class ContentManager {
         }
     }
 
-    // ====== Catalogo ======
     public void mostraCatalogoLibri() {
         ensureCatalogTab();
         tabPane.getSelectionModel().select(catalogTab);
@@ -586,7 +579,6 @@ public class ContentManager {
         }
     }
 
-    // ====== Prestiti ======
     public void mostraPrestiti() {
         ensureLoansTab();
         tabPane.getSelectionModel().select(loansTab);
@@ -767,7 +759,6 @@ public class ContentManager {
         }
     }
 
-    // ====== Miei prestiti ======
     public void mostraMieiPrestiti() {
         ensureMyLoansTab();
         tabPane.getSelectionModel().select(myLoansTab);
@@ -883,7 +874,6 @@ public class ContentManager {
         }
     }
 
-    // ====== Utenti ======
     public void mostraUtenti() {
         ensureUsersTab();
         tabPane.getSelectionModel().select(usersTab);
@@ -1127,7 +1117,6 @@ public class ContentManager {
         }
     }
 
-    // ====== Profilo ======
     public void mostraProfiloUtente() {
         if (!SessionContext.isUtente()) { showError("Profilo disponibile solo per utenti autenticati."); return; }
         if (profileTab == null) {
@@ -1177,7 +1166,6 @@ public class ContentManager {
 
     private String safe(String s) { return s != null ? s : ""; }
 
-    // ====== StatusBar ======
     private void buildStatusBar() {
         statusLabel = new Label("");
         statusBar = new HBox(statusLabel);
@@ -1201,7 +1189,6 @@ public class ContentManager {
         setStatus(msg);
     }
 
-    // ====== Tabs & Preferenze ======
     private void restoreLastTab() {
         String last = AppPreferences.loadLastTabOrDefault();
         switch (last) {
@@ -1225,7 +1212,6 @@ public class ContentManager {
         AppPreferences.saveLastTab(id);
     }
 
-    // ====== Tema ======
     private void applyTheme() {
         if (rootContainer == null) return;
         updateRootStyleClass();
@@ -1288,7 +1274,6 @@ public class ContentManager {
         }
     }
 
-    // ====== Export ======
     private void exportCatalogCsv() {
         File f = chooseCsvSaveFile("Esporta catalogo", "catalogo.csv");
         if (f == null) return;
@@ -1333,7 +1318,6 @@ public class ContentManager {
         }
     }
 
-    // ====== Import ======
     private void importCatalogCsv() {
         if (!ensureBibliotecario()) return;
         File f = chooseCsvOpenFile("Importa catalogo (CSV)");
@@ -1400,7 +1384,6 @@ public class ContentManager {
         return new int[]{ok, fail};
     }
 
-    // ====== File Choosers ======
     private File chooseCsvSaveFile(String title, String defaultName) {
         FileChooser fc = new FileChooser();
         fc.setTitle(title);
@@ -1424,7 +1407,6 @@ public class ContentManager {
         return out;
     }
 
-    // ====== Scorciatoie da tastiera ======
     private void registerAccelerators(Scene scene) {
         if (scene == null) return;
         // Navigazione

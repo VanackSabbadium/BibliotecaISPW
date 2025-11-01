@@ -30,8 +30,8 @@ public class JsonUtenteDAO implements UtenteDAO {
     private static final class CredRow {
         Long userId;
         String username;
-        String passwordHash; // SHA-256 hex
-        String role;         // "ADMIN" | "BIBLIOTECARIO" | "UTENTE"
+        String passwordHash;
+        String role;
 
         CredRow(Long userId, String username, String passwordHash, String role) {
             this.userId = userId;
@@ -243,7 +243,6 @@ public class JsonUtenteDAO implements UtenteDAO {
         userSeq = 5L;
     }
 
-    // Estrae il “blocco annidato” in un helper con <= 7 parametri (Sonar smette di brontolare)
     private void seedOne(Utente u, int anniValidita, String username, String passwordHash, String role, LocalDate base) {
         u.setDataScadenza(base.plusYears(anniValidita));
         addSeedUser(u, username, passwordHash, role);
@@ -281,8 +280,8 @@ public class JsonUtenteDAO implements UtenteDAO {
 
         List<String> objs = splitTopLevelObjects(trimmed);
         for (String obj : objs) {
-            Long id = extractLongField(obj, "id");
-            Integer tess = extractIntField(obj, "tessera");
+            Long id = extractLongField(obj);
+            Integer tess = extractIntField(obj);
             String nome = extractStringField(obj, "nome");
             String cognome = extractStringField(obj, "cognome");
             String email = extractStringField(obj, "email");
@@ -416,8 +415,8 @@ public class JsonUtenteDAO implements UtenteDAO {
         return null;
     }
 
-    private static Long extractLongField(String obj, String field) {
-        Pattern p = Pattern.compile("\"" + Pattern.quote(field) + "\"\\s*:\\s*(\\d+)");
+    private static Long extractLongField(String obj) {
+        Pattern p = Pattern.compile("\"" + Pattern.quote("id") + "\"\\s*:\\s*(\\d+)");
         Matcher m = p.matcher(obj);
         if (m.find()) {
             try {
@@ -429,8 +428,8 @@ public class JsonUtenteDAO implements UtenteDAO {
         return null;
     }
 
-    private static Integer extractIntField(String obj, String field) {
-        Pattern p = Pattern.compile("\"" + Pattern.quote(field) + "\"\\s*:\\s*(\\d+)");
+    private static Integer extractIntField(String obj) {
+        Pattern p = Pattern.compile("\"" + Pattern.quote("tessera") + "\"\\s*:\\s*(\\d+)");
         Matcher m = p.matcher(obj);
         if (m.find()) {
             try {

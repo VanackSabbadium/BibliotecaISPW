@@ -30,13 +30,9 @@ final class JsonStorageSupport {
                     StandardCharsets.UTF_8
             );
         } catch (IOException _) {
-            // come prima: silenzio, nessuna eccezione propagata
+            // empty
         }
     }
-
-    /* =========================
-       Parsing JSON minimale
-       ========================= */
 
     static List<String> splitTopLevelObjects(String jsonArray) {
         List<String> objs = new ArrayList<>();
@@ -45,7 +41,6 @@ final class JsonStorageSupport {
         String trimmed = jsonArray.trim();
         if (trimmed.length() < 2 || "[]".equals(trimmed)) return objs;
 
-        // Rimuovi parentesi quadre esterne se presenti
         if (trimmed.charAt(0) == '[' && trimmed.charAt(trimmed.length() - 1) == ']') {
             trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
         }
@@ -82,22 +77,15 @@ final class JsonStorageSupport {
 
         char first = obj.charAt(vStart);
         if (first == '"') {
-            // Stringa JSON
             Read r = readJsonString(obj, vStart);
             return r.value;
         }
 
-        // Valore non quotato (numero, null, boolean)
         int vEnd = findBareValueEnd(obj, vStart);
         return obj.substring(vStart, vEnd).trim();
     }
 
-    /* =========================
-       Helper interni
-       ========================= */
-
     private static int findObjectEnd(CharSequence s, int startBrace) {
-        // Precondizione: s.charAt(startBrace) == '{'
         int depth = 1;
         boolean inStr = false;
         boolean esc = false;
@@ -147,7 +135,6 @@ final class JsonStorageSupport {
     }
 
     private static Read readJsonString(CharSequence s, int quotePos) {
-        // Precondizione: s.charAt(quotePos) == '"'
         StringBuilder sb = new StringBuilder(32);
         boolean esc = false;
         int i = quotePos + 1;
@@ -172,10 +159,6 @@ final class JsonStorageSupport {
         final int endPos; // posizione della " di chiusura
         Read(String v, int e) { this.value = v; this.endPos = e; }
     }
-
-    /* =========================
-       Utility generiche
-       ========================= */
 
     static String quote(String s) {
         return "\"" + escapeJson(s == null ? "" : s) + "\"";
