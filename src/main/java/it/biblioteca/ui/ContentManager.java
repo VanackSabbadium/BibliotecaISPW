@@ -170,43 +170,51 @@ public class ContentManager {
         setStatus("Pronto.");
     }
 
-    // ==== Avvio guidato refactor: riduce complessità cognitiva ====
     private boolean runStartupWizard() {
         while (true) {
-            StartupDialog dlg = new StartupDialog();
-            java.util.Optional<StartupResult> res = dlg.showAndWait();
-            if (res.isEmpty()) {
-                Platform.exit();
-                return false;
-            }
+            java.util.Optional<StartupResult> res = new StartupDialog().showAndWait();
+            if (res.isEmpty()) return exitApp();
+
             StartupResult r = res.get();
 
-            String err = validateStartup(r);
-            if (err == null) {
-                // Se il backend è DB, configura SUBITO le credenziali DB,
-                // così i DAO possono aprire la connessione durante l'autenticazione applicativa.
-                it.biblioteca.dao.DaoFactory f = it.biblioteca.security.SessionContext.getDaoFactory();
-                boolean isDb = (f instanceof it.biblioteca.dao.db.DbDaoFactory);
-                if (isDb) {
-                    try {
-                        // Applica host/porta/schema/username/password del DB prima del login applicativo
-                        it.biblioteca.db.DatabaseConfig.apply(r);
-                    } catch (Exception ex) {
-                        showError("Impossibile applicare la configurazione DB: " + ex.getMessage());
-                        continue;
-                    }
-                }
-
-                // Ora possiamo autenticare contro la tabella 'credenziali'
-                AuthService.AuthResult ar = AuthService.authenticate(r.getAppUsername(), r.getAppPassword());
-                if (ar.ok()) {
-                    applyStartup(r, ar);  // salva tema, ruolo, userId, tessera...
-                    return true;
-                } else {
-                    err = "Credenziali applicative non valide. Riprova.";
-                }
+            String validationError = validateStartup(r);
+            if (validationError != null) {
+                showError(validationError);
+                continue;
             }
-            showError(err);
+
+            String dbError = configureDbIfNeeded(r);
+            if (dbError != null) {
+                showError(dbError);
+                continue;
+            }
+
+            AuthService.AuthResult ar = AuthService.authenticate(r.getAppUsername(), r.getAppPassword());
+            if (!ar.ok()) {
+                showError("Credenziali applicative non valide. Riprova.");
+                continue;
+            }
+
+            applyStartup(r, ar);
+            return true;
+        }
+    }
+
+    private boolean exitApp() {
+        Platform.exit();
+        return false;
+    }
+
+    private String configureDbIfNeeded(StartupResult r) {
+        it.biblioteca.dao.DaoFactory f = it.biblioteca.security.SessionContext.getDaoFactory();
+        boolean isDb = (f instanceof it.biblioteca.dao.db.DbDaoFactory);
+        if (!isDb) return null;
+
+        try {
+            it.biblioteca.db.DatabaseConfig.apply(r);
+            return null;
+        } catch (Exception ex) {
+            return "Impossibile applicare la configurazione DB: " + ex.getMessage();
         }
     }
 

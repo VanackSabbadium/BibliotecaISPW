@@ -34,6 +34,7 @@ public final class SessionContext {
     public static boolean isUtente() { return "UTENTE".equalsIgnoreCase(role); }
 
     public static void setUserId() {
+        // empty
     }
 
     public static void setTessera(Integer t) { tessera = t; }
