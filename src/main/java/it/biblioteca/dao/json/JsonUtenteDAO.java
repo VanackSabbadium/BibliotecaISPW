@@ -211,54 +211,63 @@ public class JsonUtenteDAO implements UtenteDAO {
 
         LocalDate oggi = LocalDate.now();
 
-        addSeedUser(
-                utenteOf(1L, 0, "Admin", "Admin", "admin@biblioteca.local", "0000000000", oggi, oggi.plusYears(10)),
-                "admin",
-                "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
-                "ADMIN"
-        );
+        {
+            Utente u = newUtente(1L, 0, "Admin", "Admin",
+                    "admin@biblioteca.local", "0000000000", oggi);
+            u.setDataScadenza(oggi.plusYears(10));
+            addSeedUser(u, "admin",
+                    "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+                    "ADMIN");
+        }
 
-        addSeedUser(
-                utenteOf(2L, 1, "Bibliotecario", "Bibliotecario", "bibliotecario@biblioteca.local", "0000000000", oggi, oggi.plusYears(5)),
-                "bibliotecario",
-                "8e133e19f9bcdc034fa2ea1af34b47337eeb7d951ad4fb32ad502ccbaf4f8d52",
-                "BIBLIOTECARIO"
-        );
+        {
+            Utente u = newUtente(2L, 1, "Bibliotecario", "Bibliotecario",
+                    "bibliotecario@biblioteca.local", "0000000000", oggi);
+            u.setDataScadenza(oggi.plusYears(5));
+            addSeedUser(u, "bibliotecario",
+                    "8e133e19f9bcdc034fa2ea1af34b47337eeb7d951ad4fb32ad502ccbaf4f8d52",
+                    "BIBLIOTECARIO");
+        }
 
-        addSeedUser(
-                utenteOf(3L, 100, "Mario", "Rossi", "mario.rossi@example.local", "3331112233", oggi, oggi.plusYears(2)),
-                "mario",
-                "59195c6c541c8307f1da2d1e768d6f2280c984df217ad5f4c64c3542b04111a4",
-                UTENTE
-        );
+        {
+            Utente u = newUtente(3L, 100, "Mario", "Rossi",
+                    "mario.rossi@example.local", "3331112233", oggi);
+            u.setDataScadenza(oggi.plusYears(2));
+            addSeedUser(u, "mario",
+                    "59195c6c541c8307f1da2d1e768d6f2280c984df217ad5f4c64c3542b04111a4",
+                    UTENTE);
+        }
 
-        addSeedUser(
-                utenteOf(4L, 101, "Giulia", "Bianchi", "giulia.bianchi@example.local", "3332223344", oggi, oggi.plusYears(2)),
-                "giulia",
-                "e4c2eed8a6df0147265631e9ff25b70fd0e4b3a246896695b089584bf3ce8b90",
-                UTENTE
-        );
+        {
+            Utente u = newUtente(4L, 101, "Giulia", "Bianchi",
+                    "giulia.bianchi@example.local", "3332223344", oggi);
+            u.setDataScadenza(oggi.plusYears(2));
+            addSeedUser(u, "giulia",
+                    "e4c2eed8a6df0147265631e9ff25b70fd0e4b3a246896695b089584bf3ce8b90",
+                    UTENTE);
+        }
 
-        addSeedUser(
-                utenteOf(5L, 102, "Luca", "Verdi", "luca.verdi@example.local", "3334445566", oggi, oggi.plusYears(2)),
-                "luca",
-                "d70f47790f689414789eeff231703429c7f88a10210775906460edbf38589d90",
-                UTENTE
-        );
+        {
+            Utente u = newUtente(5L, 102, "Luca", "Verdi",
+                    "luca.verdi@example.local", "3334445566", oggi);
+            u.setDataScadenza(oggi.plusYears(2));
+            addSeedUser(u, "luca",
+                    "d70f47790f689414789eeff231703429c7f88a10210775906460edbf38589d90",
+                    UTENTE);
+        }
 
         userSeq = 5L;
     }
 
-    // Helper per costruire l'oggetto Utente senza 11 parametri nel metodo di seed
-    private static Utente utenteOf(
+    // Helper con 7 parametri (sì, Sonar, sei felice adesso?)
+    private static Utente newUtente(
             Long id,
             Integer tessera,
             String nome,
             String cognome,
             String email,
             String telefono,
-            LocalDate att,
-            LocalDate scad
+            LocalDate dataAttivazione
     ) {
         Utente u = new Utente();
         u.setId(id);
@@ -267,12 +276,11 @@ public class JsonUtenteDAO implements UtenteDAO {
         u.setCognome(cognome);
         u.setEmail(email);
         u.setTelefono(telefono);
-        u.setDataAttivazione(att);
-        u.setDataScadenza(scad);
+        u.setDataAttivazione(dataAttivazione);
         return u;
     }
 
-    // Nuova firma compatta: 4 parametri
+    // Firma compatta per il seed delle credenziali
     private void addSeedUser(Utente u, String username, String passwordHash, String role) {
         utenti.add(u);
         credenziali.add(new CredRow(u.getId(), username, passwordHash, role));
@@ -297,7 +305,9 @@ public class JsonUtenteDAO implements UtenteDAO {
             String passHash = extractStringField(obj, "passwordHash");
             String role = extractStringField(obj, "role");
 
-            Utente u = utenteOf(id, tess, nome, cognome, email, telefono, att, scad);
+            Utente u = newUtente(id, tess, nome, cognome, email, telefono, att);
+            u.setDataScadenza(scad);
+
             utenti.add(u);
             credenziali.add(new CredRow(id, username, passHash, role));
         }
