@@ -122,7 +122,7 @@ public class ContentManager {
         try {
             String th = AppPreferences.loadThemeOrDefault();
             this.currentTheme = "BIANCO_NERO".equalsIgnoreCase(th) ? Theme.BIANCO_NERO : Theme.COLORI;
-        } catch (Exception ignored) {  // empty
+        } catch (Exception _) {  // empty
         }
     }
 
@@ -238,7 +238,7 @@ public class ContentManager {
         if (isDb) {
             try {
                 it.biblioteca.db.DatabaseConfig.apply(r);
-            } catch (Exception ignored) {
+            } catch (Exception _) {
                 // in FILE non serve, e in DB se fallisce ci penserà la UI
             }
         }
@@ -548,7 +548,7 @@ public class ContentManager {
         try {
             List<Prestito> attivi = ui.listActiveLoans();
             active = attivi.stream().filter(p -> p.getLibroId() != null && b.getId().equals(p.getLibroId())).count();
-        } catch (Exception ignored) { // empty
+        } catch (Exception _) { // empty
         }
         return (int) Math.max(0, copies - active);
     }
@@ -996,7 +996,7 @@ public class ContentManager {
             Utente u = cell.getValue();
             String username = "";
             try { if (u != null && u.getId() != null) username = ui.getUsernameForUserId(u.getId()).orElse(""); }
-            catch (Exception ignored) { // empty
+            catch (Exception _) { // empty
             }
             return new ReadOnlyStringWrapper(username);
         });
@@ -1055,7 +1055,7 @@ public class ContentManager {
         Utente sel = usersTable.getSelectionModel().getSelectedItem();
         if (sel == null) { showError("Seleziona un utente per associare le credenziali."); return; }
         java.util.Optional<String> existing;
-        try { existing = ui.getUsernameForUserId(sel.getId()); } catch (Exception ignored) { existing = java.util.Optional.empty(); }
+        try { existing = ui.getUsernameForUserId(sel.getId()); } catch (Exception _) { existing = java.util.Optional.empty(); }
         String existingUsername = existing.orElse("");
         CredentialsDialog dlg = new CredentialsDialog(existingUsername, null);
         dlg.showAndWait().ifPresent(pair -> {
@@ -1338,7 +1338,9 @@ public class ContentManager {
         File f = chooseCsvOpenFile("Importa catalogo (CSV)");
         if (f == null) return;
 
-        int ok = 0, fail = 0;
+        int ok = 0;
+        int fail = 0;
+
         try {
             java.util.List<it.biblioteca.bean.BookBean> beans = it.biblioteca.util.csv.CsvImporter.importBooks(f);
             int[] counts = processImportBooks(beans);
@@ -1357,7 +1359,7 @@ public class ContentManager {
         for (it.biblioteca.bean.BookBean b : beans) {
             try {
                 if (ui.addBook(b)) ok++; else fail++;
-            } catch (Exception ex) {
+            } catch (Exception _) {
                 fail++;
             }
         }
@@ -1369,7 +1371,9 @@ public class ContentManager {
         File f = chooseCsvOpenFile("Importa utenti (CSV)");
         if (f == null) return;
 
-        int ok = 0, fail = 0;
+        int ok = 0;
+        int fail = 0;
+
         try {
             java.util.List<it.biblioteca.bean.UtenteBean> beans = it.biblioteca.util.csv.CsvImporter.importUsers(f);
             int[] counts = processImportUsers(beans);
@@ -1388,7 +1392,7 @@ public class ContentManager {
         for (it.biblioteca.bean.UtenteBean u : beans) {
             try {
                 if (ui.addUser(u)) ok++; else fail++;
-            } catch (Exception ex) {
+            } catch (Exception _) {
                 fail++;
             }
         }

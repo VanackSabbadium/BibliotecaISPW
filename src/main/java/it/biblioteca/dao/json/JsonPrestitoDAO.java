@@ -120,7 +120,7 @@ public class JsonPrestitoDAO implements PrestitoDAO {
                     nextId = p.getId() + 1;
                 }
                 cache.add(p);
-            } catch (Exception ignored) {
+            } catch (Exception _) {
                 // un record rotto non butta giù tutto
             }
         }

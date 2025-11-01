@@ -13,7 +13,7 @@ public final class SessionContext {
             if (s == null) return null;
             try {
                 return AppRole.valueOf(s.trim().toUpperCase());
-            } catch (Exception ignored) {
+            } catch (Exception _) {
                 return null;
             }
         }

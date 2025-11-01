@@ -17,7 +17,7 @@ final class JsonStorageSupport {
     static String readWholeFile(File file) {
         try {
             return Files.readString(file.toPath(), StandardCharsets.UTF_8);
-        } catch (IOException ignored) {
+        } catch (IOException _) {
             return "";
         }
     }
@@ -29,7 +29,7 @@ final class JsonStorageSupport {
                     content,
                     StandardCharsets.UTF_8
             );
-        } catch (IOException ignored) {
+        } catch (IOException _) {
             // come prima: silenzio, nessuna eccezione propagata
         }
     }

@@ -133,7 +133,7 @@ public class JsonBookDAO implements BookDAO {
                     nextId = b.getId() + 1;
                 }
                 cache.add(b);
-            } catch (Exception ignored) {
+            } catch (Exception _) {
                 // se un record è marcio non blocchiamo tutto
             }
         }

@@ -183,7 +183,6 @@ public class JsonUtenteDAO implements UtenteDAO {
         try {
             json = Files.readString(usersFile.toPath(), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            // Se non riesco a leggere il file, faccio fallback ai default.
             LOGGER.log(Level.WARNING, "Impossibile leggere utenti.json, uso valori di default.", e);
             seedDefaults();
             saveToFile();
@@ -259,7 +258,6 @@ public class JsonUtenteDAO implements UtenteDAO {
         userSeq = 5L;
     }
 
-    // Helper con 7 parametri (sì, Sonar, sei felice adesso?)
     private static Utente newUtente(
             Long id,
             Integer tessera,
@@ -280,7 +278,6 @@ public class JsonUtenteDAO implements UtenteDAO {
         return u;
     }
 
-    // Firma compatta per il seed delle credenziali
     private void addSeedUser(Utente u, String username, String passwordHash, String role) {
         utenti.add(u);
         credenziali.add(new CredRow(u.getId(), username, passwordHash, role));
@@ -434,7 +431,7 @@ public class JsonUtenteDAO implements UtenteDAO {
         if (m.find()) {
             try {
                 return Long.valueOf(m.group(1));
-            } catch (Exception ignored) {
+            } catch (Exception _) {
                 // empty
             }
         }
@@ -447,7 +444,7 @@ public class JsonUtenteDAO implements UtenteDAO {
         if (m.find()) {
             try {
                 return Integer.valueOf(m.group(1));
-            } catch (Exception ignored) {
+            } catch (Exception _) {
                 // empty
             }
         }
@@ -458,7 +455,7 @@ public class JsonUtenteDAO implements UtenteDAO {
         if (s == null || s.isBlank()) return null;
         try {
             return LocalDate.parse(s.trim());
-        } catch (Exception ignored) {
+        } catch (Exception _) {
             return null;
         }
     }
