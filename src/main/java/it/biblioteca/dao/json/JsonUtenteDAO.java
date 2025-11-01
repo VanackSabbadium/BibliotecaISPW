@@ -18,6 +18,7 @@ import java.util.logging.Logger;
 public class JsonUtenteDAO implements UtenteDAO {
 
     private static final Logger LOGGER = Logger.getLogger(JsonUtenteDAO.class.getName());
+    private static final String UTENTE = "UTENTE";
 
     private final File usersFile;
 
@@ -117,7 +118,7 @@ public class JsonUtenteDAO implements UtenteDAO {
             return false;
         }
         String hash = sha256Hex(passwordPlain);
-        credenziali.add(new CredRow(utenteId, username, hash, "UTENTE"));
+        credenziali.add(new CredRow(utenteId, username, hash, UTENTE));
         saveToFile();
         return true;
     }
@@ -133,7 +134,7 @@ public class JsonUtenteDAO implements UtenteDAO {
             row.username = username;
             row.passwordHash = hash;
         } else {
-            credenziali.add(new CredRow(utenteId, username, hash, "UTENTE"));
+            credenziali.add(new CredRow(utenteId, username, hash, UTENTE));
         }
 
         saveToFile();
@@ -249,7 +250,7 @@ public class JsonUtenteDAO implements UtenteDAO {
                 oggi.plusYears(2),
                 "mario",
                 "59195c6c541c8307f1da2d1e768d6f2280c984df217ad5f4c64c3542b04111a4",
-                "UTENTE"
+                UTENTE
         );
 
         addSeedUser(
@@ -263,7 +264,7 @@ public class JsonUtenteDAO implements UtenteDAO {
                 oggi.plusYears(2),
                 "giulia",
                 "e4c2eed8a6df0147265631e9ff25b70fd0e4b3a246896695b089584bf3ce8b90",
-                "UTENTE"
+                UTENTE
         );
 
         addSeedUser(
@@ -277,7 +278,7 @@ public class JsonUtenteDAO implements UtenteDAO {
                 oggi.plusYears(2),
                 "luca",
                 "d70f47790f689414789eeff231703429c7f88a10210775906460edbf38589d90",
-                "UTENTE"
+                UTENTE
         );
 
         userSeq = 5L;
@@ -386,41 +387,49 @@ public class JsonUtenteDAO implements UtenteDAO {
 
     private static List<String> splitTopLevelObjects(String json) {
         List<String> out = new ArrayList<>();
-        int len = json.length();
-        boolean inString = false;
+        if (json == null) return out;
+
+        String s = json.trim();
+        if (s.length() < 2 || "[]".equals(s)) return out;
+
+        // Rimuove le parentesi quadre esterne dell'array, se presenti
+        if (s.charAt(0) == '[' && s.charAt(s.length() - 1) == ']') {
+            s = s.substring(1, s.length() - 1).trim();
+        }
+
         int depth = 0;
+        boolean inStr = false;
+        boolean esc = false;   // siamo dentro una stringa e il carattere precedente è un backslash
         int start = -1;
 
-        for (int i = 0; i < len; i++) {
-            char ch = json.charAt(i);
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
 
-            if (ch == '"') {
-                boolean escaped = false;
-                int j = i - 1;
-                while (j >= 0 && json.charAt(j) == '\\') {
-                    escaped = !escaped;
-                    j--;
+            if (inStr) {
+                if (esc) {
+                    esc = false;           // consumato il carattere dopo il backslash
+                } else if (ch == '\\') {
+                    esc = true;            // prossimo carattere è escaped
+                } else if (ch == '\"') {
+                    inStr = false;         // fine stringa
                 }
-                if (!escaped) {
-                    inString = !inString;
-                }
+                continue;                  // dentro stringa ignoriamo la struttura
             }
 
-            if (!inString) {
-                if (ch == '{') {
-                    if (depth == 0) {
-                        start = i;
-                    }
-                    depth++;
-                } else if (ch == '}') {
-                    depth--;
-                    if (depth == 0 && start >= 0) {
-                        out.add(json.substring(start, i + 1));
-                        start = -1;
-                    }
+            if (ch == '\"') {
+                inStr = true;              // inizio stringa
+            } else if (ch == '{') {
+                if (depth == 0) start = i; // inizio oggetto top-level
+                depth++;
+            } else if (ch == '}') {
+                depth--;
+                if (depth == 0 && start >= 0) {
+                    out.add(s.substring(start, i + 1).trim());
+                    start = -1;
                 }
             }
         }
+
         return out;
     }
 
