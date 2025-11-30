@@ -3,15 +3,36 @@ package it.biblioteca.events;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
-public enum EventBus {
-    INSTANCE;
+public final class EventBus {
 
-    public static EventBus getDefault() { return INSTANCE; }
+    // =========================
+    //  Singleton Bill Pugh
+    // =========================
+    private EventBus() {
+        // costruttore privato per impedire istanziazione esterna
+    }
+
+    // Holder statico che inizializza l'istanza in modo lazy e thread-safe
+    private static class Holder {
+        private static final EventBus INSTANCE = new EventBus();
+    }
+
+    public static EventBus getDefault() {
+        return Holder.INSTANCE;
+    }
+
+    // =========================
+    //  Implementazione EventBus
+    // =========================
 
     private static final class Subscriber<T extends AppEvent> {
         final Class<T> type;
         final Consumer<T> consumer;
-        Subscriber(Class<T> type, Consumer<T> consumer) { this.type = type; this.consumer = consumer; }
+
+        Subscriber(Class<T> type, Consumer<T> consumer) {
+            this.type = type;
+            this.consumer = consumer;
+        }
     }
 
     private final CopyOnWriteArrayList<Subscriber<?>> subscribers = new CopyOnWriteArrayList<>();
@@ -30,6 +51,7 @@ public enum EventBus {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private static <T extends AppEvent> void notifySubscriber(Subscriber<?> raw, AppEvent event) {
         Subscriber<T> s = (Subscriber<T>) raw;
         s.consumer.accept((T) event);
