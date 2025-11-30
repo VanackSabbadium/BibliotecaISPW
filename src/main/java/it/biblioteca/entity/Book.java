@@ -32,7 +32,7 @@ public class Book {
     public String getCasaEditrice() { return casaEditrice; }
     public void setCasaEditrice(String casaEditrice) { this.casaEditrice = casaEditrice; }
 
-    public void setAttivo() {
+    public void setAttivo() { // empty
     }
 
     public int getCopie() { return copie; }
