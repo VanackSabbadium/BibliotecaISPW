@@ -147,7 +147,6 @@ public class DbBookDAO implements BookDAO {
         b.setDataPubblicazione(d != null ? d.toLocalDate() : null);
 
         b.setCasaEditrice(rs.getString("casa_editrice"));
-
         b.setAttivo();
 
         int copieDb = rs.getInt("copie");
