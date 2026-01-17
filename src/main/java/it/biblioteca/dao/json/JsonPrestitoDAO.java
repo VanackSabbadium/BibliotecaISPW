@@ -10,10 +10,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Implementazione su file JSON del PrestitoDAO.
- * Anche qui, la logica comune (I/O, parsing grezzo del JSON) è stata spostata in JsonStorageSupport.
- */
 public class JsonPrestitoDAO implements PrestitoDAO {
 
     private final File storageFile;

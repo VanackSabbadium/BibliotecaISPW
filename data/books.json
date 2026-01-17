@@ -1,0 +1,82 @@
+[
+  {
+    "id": 1,
+    "isbn": "9780000000011",
+    "titolo": "Il nome della rosa",
+    "autore": "Umberto Eco",
+    "dataPubblicazione": "1980-01-01",
+    "casaEditrice": "Bompiani",
+    "attivo": true,
+    "copie": 3
+  },
+  {
+    "id": 2,
+    "isbn": "9780000000028",
+    "titolo": "1984",
+    "autore": "George Orwell",
+    "dataPubblicazione": "1949-06-08",
+    "casaEditrice": "Secker & Warburg",
+    "attivo": true,
+    "copie": 5
+  },
+  {
+    "id": 3,
+    "isbn": "9780000000035",
+    "titolo": "Clean Code",
+    "autore": "Robert C. Martin",
+    "dataPubblicazione": "2008-08-11",
+    "casaEditrice": "Prentice Hall",
+    "attivo": true,
+    "copie": 2
+  },
+  {
+    "id": 4,
+    "isbn": "9780000000042",
+    "titolo": "Il Signore degli Anelli",
+    "autore": "J.R.R. Tolkien",
+    "dataPubblicazione": "1954-07-29",
+    "casaEditrice": "Allen & Unwin",
+    "attivo": true,
+    "copie": 4
+  },
+  {
+    "id": 5,
+    "isbn": "9780000000059",
+    "titolo": "Harry Potter e la Pietra Filosofale",
+    "autore": "J.K. Rowling",
+    "dataPubblicazione": "1997-06-26",
+    "casaEditrice": "Bloomsbury",
+    "attivo": true,
+    "copie": 6
+  },
+  {
+    "id": 6,
+    "isbn": "9780000000066",
+    "titolo": "La Divina Commedia",
+    "autore": "Dante Alighieri",
+    "dataPubblicazione": "1321-01-01",
+    "casaEditrice": "Public Domain",
+    "attivo": true,
+    "copie": 10
+  },
+  {
+    "id": 7,
+    "isbn": "9780000000073",
+    "titolo": "Operating Systems: Three Easy Pieces",
+    "autore": "Remzi H. Arpaci-Dusseau, Andrea C. Arpaci-Dusseau",
+    "dataPubblicazione": "2018-01-01",
+    "casaEditrice": "Arpaci-Dusseau Books",
+    "attivo": true,
+    "copie": 3
+  },
+  {
+    "id": 8,
+    "isbn": "9780000000080",
+    "titolo": "Design Patterns: Elements of Reusable Object-Oriented Software",
+    "autore": "Erich Gamma, Richard Helm, Ralph Johnson, John Vlissides",
+    "dataPubblicazione": "1994-10-21",
+    "casaEditrice": "Addison-Wesley",
+    "attivo": true,
+    "copie": 2
+  }
+]

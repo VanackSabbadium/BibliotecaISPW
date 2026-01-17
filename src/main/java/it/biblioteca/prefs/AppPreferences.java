@@ -9,8 +9,8 @@ import java.util.prefs.Preferences;
 public final class AppPreferences {
 
     private static final String NODE = "it/biblioteca/app";
-    private static final String KEY_THEME = "theme"; // "COLORI" | "BIANCO_NERO"
-    private static final String KEY_LAST_TAB = "lastTab"; // "home" | "catalogo" | "prestiti" | "utenti" | "profilo" | "miei_prestiti"
+    private static final String KEY_THEME = "theme";
+    private static final String KEY_LAST_TAB = "lastTab";
     private static final String KEY_LAST_DIR = "lastDir";
 
     private static final String KEY_STAGE_X = "stageX";

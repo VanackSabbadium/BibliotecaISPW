@@ -1,0 +1,67 @@
+[
+  {
+    "id": 1,
+    "tessera": 0,
+    "nome": "Admin",
+    "cognome": "Admin",
+    "email": "admin@biblioteca.local",
+    "telefono": "0000000000",
+    "dataAttivazione": "2026-01-11",
+    "dataScadenza": "2036-01-11",
+    "username": "admin",
+    "passwordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+    "role": "ADMIN"
+  },
+  {
+    "id": 2,
+    "tessera": 1,
+    "nome": "Bibliotecario",
+    "cognome": "Bibliotecario",
+    "email": "bibliotecario@biblioteca.local",
+    "telefono": "0000000000",
+    "dataAttivazione": "2026-01-11",
+    "dataScadenza": "2031-01-11",
+    "username": "bibliotecario",
+    "passwordHash": "8e133e19f9bcdc034fa2ea1af34b47337eeb7d951ad4fb32ad502ccbaf4f8d52",
+    "role": "BIBLIOTECARIO"
+  },
+  {
+    "id": 3,
+    "tessera": 100,
+    "nome": "Mario",
+    "cognome": "Rossi",
+    "email": "mario.rossi@example.local",
+    "telefono": "3331112233",
+    "dataAttivazione": "2026-01-11",
+    "dataScadenza": "2028-01-11",
+    "username": "mario",
+    "passwordHash": "59195c6c541c8307f1da2d1e768d6f2280c984df217ad5f4c64c3542b04111a4",
+    "role": "UTENTE"
+  },
+  {
+    "id": 4,
+    "tessera": 101,
+    "nome": "Giulia",
+    "cognome": "Bianchi",
+    "email": "giulia.bianchi@example.local",
+    "telefono": "3332223344",
+    "dataAttivazione": "2026-01-11",
+    "dataScadenza": "2028-01-11",
+    "username": "giulia",
+    "passwordHash": "e4c2eed8a6df0147265631e9ff25b70fd0e4b3a246896695b089584bf3ce8b90",
+    "role": "UTENTE"
+  },
+  {
+    "id": 5,
+    "tessera": 102,
+    "nome": "Luca",
+    "cognome": "Verdi",
+    "email": "luca.verdi@example.local",
+    "telefono": "3334445566",
+    "dataAttivazione": "2026-01-11",
+    "dataScadenza": "2028-01-11",
+    "username": "luca",
+    "passwordHash": "d70f47790f689414789eeff231703429c7f88a10210775906460edbf38589d90",
+    "role": "UTENTE"
+  }
+]

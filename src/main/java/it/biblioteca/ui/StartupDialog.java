@@ -80,10 +80,10 @@ public class StartupDialog extends Dialog<StartupResult> {
             Theme theme = themeGroup.getSelectedToggle() == rbBw ? Theme.BIANCO_NERO : Theme.COLORI;
 
             return new StartupResult(
-                    txtDbUser.getText(),              // DB username (nascosto, default)
-                    txtDbPass.getText(),              // DB password (nascosto, default)
-                    txtAppUser.getText().trim(),      // app username
-                    txtAppPass.getText().trim(),      // app password
+                    txtDbUser.getText(),
+                    txtDbPass.getText(),
+                    txtAppUser.getText().trim(),
+                    txtAppPass.getText().trim(),
                     theme
             );
         });

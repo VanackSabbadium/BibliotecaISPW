@@ -51,7 +51,7 @@ final class JsonStorageSupport {
             char ch = trimmed.charAt(i);
             if (ch == '{') {
                 int end = findObjectEnd(trimmed, i);
-                if (end < 0) break; // JSON incompleto: best effort
+                if (end < 0) break;
                 objs.add(trimmed.substring(i, end + 1).trim());
                 i = end + 1;
             } else {
@@ -110,7 +110,7 @@ final class JsonStorageSupport {
                 if (depth == 0) return i;
             }
         }
-        return -1; // non chiuso
+        return -1;
     }
 
     private static int skipWs(CharSequence s, int i) {
@@ -146,7 +146,7 @@ final class JsonStorageSupport {
             } else if (c == '\\') {
                 esc = true;
             } else if (c == '\"') {
-                break; // chiusura
+                break;
             } else {
                 sb.append(c);
             }
@@ -156,7 +156,7 @@ final class JsonStorageSupport {
 
     private static final class Read {
         final String value;
-        final int endPos; // posizione della " di chiusura
+        final int endPos;
         Read(String v, int e) { this.value = v; this.endPos = e; }
     }
 

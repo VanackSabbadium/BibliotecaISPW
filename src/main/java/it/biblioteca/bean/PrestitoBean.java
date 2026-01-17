@@ -8,8 +8,8 @@ public class PrestitoBean {
     private Long libroId;
     private Long utenteId;
 
-    private String utenteSnapshot;         // es: "Mario Rossi"
-    private String libroTitoloSnapshot;    // es: "Il Nome della Rosa"
+    private String utenteSnapshot;
+    private String libroTitoloSnapshot;
 
     private LocalDate dataPrestito;
 

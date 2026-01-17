@@ -129,7 +129,7 @@ public class ContentManager {
         this.rootContainer = root;
 
         if (!runStartupWizard()) {
-            return; // runStartupWizard() chiama Platform.exit() se l'utente annulla.
+            return;
         }
 
         tabPane = new TabPane();
@@ -145,10 +145,6 @@ public class ContentManager {
         buildStatusBar();
         root.setBottom(statusBar);
 
-        // Ripristina ultima tab (se esiste)
-        restoreLastTab();
-
-        // Dopo che la scene è disponibile: shortcut + stage prefs
         root.sceneProperty().addListener((obs, oldS, newS) -> {
             if (newS != null) {
                 registerAccelerators(newS);
@@ -217,7 +213,6 @@ public class ContentManager {
     private String validateStartup(StartupResult r) {
         if (r == null || !r.isValid()) return "Compila tutti i campi richiesti.";
 
-        // Se stiamo usando backend FILE, non testare le credenziali DB
         it.biblioteca.dao.DaoFactory f = it.biblioteca.security.SessionContext.getDaoFactory();
         boolean isDb = (f instanceof it.biblioteca.dao.db.DbDaoFactory);
 
@@ -243,13 +238,11 @@ public class ContentManager {
         applyTheme();
         it.biblioteca.prefs.AppPreferences.saveTheme(currentTheme.name());
 
-        // Ruolo: salviamo come String
         it.biblioteca.security.SessionContext.setRole(ar.role().name());
         it.biblioteca.security.SessionContext.setUserId();
         it.biblioteca.security.SessionContext.setTessera(ar.tessera());
     }
 
-    // Helper per comporre lo status con eventuale query
     private static String withQuery(String base, String q) {
         return (q == null || q.isBlank()) ? base : base + STATUS_QUERY_SUFFIX + q + "\"";
     }
@@ -468,7 +461,6 @@ public class ContentManager {
             setStatus(q.isBlank() ? "Filtro catalogo rimosso." : "Filtro catalogo: \"" + q + "\"");
         });
 
-        // Salva ultima tab corrente
         tabPane.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> saveCurrentTabPreference(n));
     }
 
@@ -771,7 +763,6 @@ public class ContentManager {
         myLoansRoot.setPadding(new Insets(10));
 
         Button btnRefresh = new Button("Aggiorna");
-        // export
         Button btnExportMyLoans = new Button(LBL_EXPORT_CSV);
         cmbMyLoanFilter = new ComboBox<>();
         cmbMyLoanFilter.getItems().addAll(TUTTI, "In corso", "Conclusi");
@@ -899,13 +890,10 @@ public class ContentManager {
         Button btnEdit = new Button("Modifica");
         Button btnDelete = new Button("Elimina");
         Button btnCred = new Button("Crea/Modifica credenziali");
-        // import
         Button btnImportUsers = new Button("Importa CSV");
-        // export
         Button btnExportUsers = new Button(LBL_EXPORT_CSV);
 
         HBox toolbar = buildUsersToolbar(btnAdd, btnEdit, btnDelete, btnCred);
-        // Inserisco Import/Export subito dopo 'Elimina' e prima di 'Crea/Modifica credenziali'
         toolbar.getChildren().add(3, btnImportUsers);
         toolbar.getChildren().add(4, btnExportUsers);
 
@@ -1187,18 +1175,6 @@ public class ContentManager {
         Alert a = new Alert(Alert.AlertType.ERROR, msg, ButtonType.OK);
         a.setHeaderText(null); a.setTitle("Errore"); a.showAndWait();
         setStatus(msg);
-    }
-
-    private void restoreLastTab() {
-        String last = AppPreferences.loadLastTabOrDefault();
-        switch (last) {
-            case "catalogo" -> mostraCatalogoLibri();
-            case "prestiti" -> mostraPrestiti();
-            case "utenti" -> mostraUtenti();
-            case "profilo" -> mostraProfiloUtente();
-            case "miei_prestiti" -> mostraMieiPrestiti();
-            default -> mostraHome();
-        }
     }
 
     private void saveCurrentTabPreference(Tab n) {

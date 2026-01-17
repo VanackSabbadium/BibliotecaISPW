@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "libroId": 1,
+    "utenteId": 3,
+    "utente": "Mario Rossi (tessera 100)",
+    "dataPrestito": "2025-10-20",
+    "dataRestituzione": null,
+    "libroTitoloSnapshot": "Il nome della rosa"
+  },
+  {
+    "id": 2,
+    "libroId": 2,
+    "utenteId": 4,
+    "utente": "Giulia Bianchi (tessera 101)",
+    "dataPrestito": "2025-09-15",
+    "dataRestituzione": "2025-10-01",
+    "libroTitoloSnapshot": "1984"
+  },
+  {
+    "id": 3,
+    "libroId": 3,
+    "utenteId": 5,
+    "utente": "Luca Verdi (tessera 102)",
+    "dataPrestito": "2025-10-10",
+    "dataRestituzione": null,
+    "libroTitoloSnapshot": "Clean Code"
+  },
+  {
+    "id": 4,
+    "libroId": 8,
+    "utenteId": 2,
+    "utente": "Bibliotecario Bibliotecario (tessera 1)",
+    "dataPrestito": "2025-08-01",
+    "dataRestituzione": "2025-08-20",
+    "libroTitoloSnapshot": "Design Patterns: Elements of Reusable Object-Oriented Software"
+  }
+]
