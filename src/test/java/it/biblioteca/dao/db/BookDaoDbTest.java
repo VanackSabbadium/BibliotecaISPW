@@ -29,7 +29,6 @@ class BookDaoDbTest {
 
     @Test
     void crudLibro_funzionante() {
-        // Crea
         Book b = new Book();
         b.setIsbn("978000000002");
         b.setTitolo("Nuovo Libro");

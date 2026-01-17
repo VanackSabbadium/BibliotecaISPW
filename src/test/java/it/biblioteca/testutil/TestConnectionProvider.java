@@ -9,7 +9,7 @@ import java.sql.SQLException;
 public class TestConnectionProvider implements ConnectionProvider {
 
     public static final String DEFAULT_URL  =
-            System.getProperty("DB_URL", "jdbc:mysql://localhost:3306/biblioteca?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC");
+            System.getProperty("DB_URL", "jdbc:mariadb://localhost:3306/biblioteca?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC");
     public static final String DEFAULT_USER =
             System.getProperty("DB_USER", "Admin");
     public static final String DEFAULT_PASS =
