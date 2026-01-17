@@ -75,8 +75,6 @@ public final class TestDbSetup {
                 )
             """);
 
-            LocalDate today = LocalDate.now();
-
             st.execute("""
                 INSERT INTO utenti (tessera, nome, cognome, email, telefono, data_attivazione, data_scadenza)
                 VALUES (0,'Admin','Admin','admin@biblioteca.local','000', CURDATE(), DATE_ADD(CURDATE(), INTERVAL 10 YEAR))
