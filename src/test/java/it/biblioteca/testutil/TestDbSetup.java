@@ -5,26 +5,19 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 
-/**
- * Prepara schema e dati minimi su MySQL nello schema "biblioteca".
- * Richiede privilegi su CREATE/DROP TABLE per l'utente DB usato nei test.
- */
 public final class TestDbSetup {
 
     private TestDbSetup() {}
 
     public static void resetSchema(Connection conn) throws SQLException {
         try (Statement st = conn.createStatement()) {
-            // Disabilita FK temporaneamente
             st.execute("SET FOREIGN_KEY_CHECKS=0");
 
-            // Drop tabelle se esistono
             st.execute("DROP TABLE IF EXISTS prestiti");
             st.execute("DROP TABLE IF EXISTS credenziali");
             st.execute("DROP TABLE IF EXISTS libri");
             st.execute("DROP TABLE IF EXISTS utenti");
 
-            // Ricrea tabelle minime richieste dall'app
             st.execute("""
                 CREATE TABLE utenti (
                   id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -82,9 +75,7 @@ public final class TestDbSetup {
                 )
             """);
 
-            // Popola utenti base
             LocalDate today = LocalDate.now();
-            LocalDate future = today.plusYears(5);
 
             st.execute("""
                 INSERT INTO utenti (tessera, nome, cognome, email, telefono, data_attivazione, data_scadenza)
@@ -99,12 +90,10 @@ public final class TestDbSetup {
                 VALUES (100,'Mario','Rossi','mario@biblioteca.local','222', CURDATE(), DATE_ADD(CURDATE(), INTERVAL 3 YEAR))
             """);
 
-            // ID auto-increment partono da 1 su tabella vuota
             st.execute("INSERT INTO credenziali (utente_id, username, password_hash, role) VALUES (1,'admin',SHA2('admin',256),'ADMIN')");
             st.execute("INSERT INTO credenziali (utente_id, username, password_hash, role) VALUES (2,'bibliotecario',SHA2('bibliotecario',256),'BIBLIOTECARIO')");
             st.execute("INSERT INTO credenziali (utente_id, username, password_hash, role) VALUES (3,'mario',SHA2('mario',256),'UTENTE')");
 
-            // Un libro sample
             st.execute("""
                 INSERT INTO libri (isbn,titolo,autore,data_pubblicazione,casa_editrice,attivo,copie)
                 VALUES ('978000000001','Libro Test','Autore Test', CURDATE(),'Editore Test',1,3)

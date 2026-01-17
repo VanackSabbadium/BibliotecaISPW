@@ -41,13 +41,11 @@ class BookDaoDbTest {
         dao.salvaLibro(b);
         assertNotNull(b.getId());
 
-        // Verifica lettura
         List<Book> all = dao.trovaTutti();
         assertEquals(2, all.size(), "C'è anche il libro seed inserito in setup");
         Book found = all.stream().filter(x -> "978000000002".equals(x.getIsbn())).findFirst().orElseThrow();
         assertEquals("Nuovo Libro", found.getTitolo());
 
-        // Aggiorna
         found.setTitolo("Nuovo Libro 2");
         found.setCopie(5);
         dao.aggiornaLibro(found);
@@ -56,7 +54,6 @@ class BookDaoDbTest {
         assertEquals("Nuovo Libro 2", after.getTitolo());
         assertEquals(5, after.getCopie());
 
-        // Elimina
         dao.eliminaLibro(after.getId());
         boolean stillThere = dao.trovaTutti().stream().anyMatch(x -> "978000000002".equals(x.getIsbn()));
         assertFalse(stillThere);

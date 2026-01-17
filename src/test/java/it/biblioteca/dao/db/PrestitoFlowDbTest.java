@@ -30,7 +30,6 @@ class PrestitoFlowDbTest {
 
     @Test
     void registraEChiudiPrestito() {
-        // Abbiamo già un libro seed con id=1 e un utente Mario con id=3 in setup.
         PrestitoBean bean = new PrestitoBean();
         bean.setLibroId(1L);
         bean.setUtenteId(3L);
@@ -51,15 +50,12 @@ class PrestitoFlowDbTest {
         assertEquals(LocalDate.of(2025, 1, 10), p.getDataPrestito());
         assertNull(p.getDataRestituzione());
 
-        // Attivi
         assertEquals(1, dao.trovaPrestitiAttivi().size());
 
-        // Chiudi
         assertTrue(dao.chiudiPrestito(p.getId(), LocalDate.of(2025, 1, 20)));
         List<Prestito> attivi = dao.trovaPrestitiAttivi();
         assertEquals(0, attivi.size());
 
-        // Verifica data restituzione
         Prestito closed = dao.trovaTutti().getFirst();
         assertEquals(LocalDate.of(2025, 1, 20), closed.getDataRestituzione());
     }

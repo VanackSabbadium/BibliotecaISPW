@@ -6,10 +6,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
-/**
- * ConnectionProvider di test: usa DriverManager con URL/USER/PASS configurabili.
- * Override con -DDB_URL -DDB_USER -DDB_PASS se serve.
- */
 public class TestConnectionProvider implements ConnectionProvider {
 
     public static final String DEFAULT_URL  =
