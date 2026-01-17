@@ -3,7 +3,6 @@ package it.biblioteca.testutil;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.time.LocalDate;
 
 public final class TestDbSetup {
 
